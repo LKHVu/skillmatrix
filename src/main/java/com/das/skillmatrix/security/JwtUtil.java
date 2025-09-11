@@ -68,9 +68,9 @@ public class JwtUtil {
         }
     }
 
-    public boolean validateRefreshToken(String token, String email) {
+    public boolean validateRefreshToken(String token) {
         try {
-            return extractEmail(token).equals(email) && !isExpired(token);
+            return !isExpired(token);
         } catch (JwtException e) {
             return false;
         }
