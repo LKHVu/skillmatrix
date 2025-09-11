@@ -27,7 +27,7 @@ public class AuthService {
     @Autowired
     private JwtUtil jwtUtil;
 
-    AuthService(PasswordEncoder passwordEncoder) {
+    public AuthService(PasswordEncoder passwordEncoder) {
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -45,7 +45,7 @@ public class AuthService {
             return new LoginResponse(accessToken, refreshToken);
 
         } catch (Exception e) {
-            throw e;
+            throw new AuthException("Login failed: " + e.getMessage());
         }
     }
 
@@ -67,7 +67,7 @@ public class AuthService {
             return new RefreshTokenResponse(newAccessToken);
 
         } catch (Exception e) {
-            throw e;
+            throw new AuthException("Refresh token failed: " + e.getMessage());
         }
     }
 

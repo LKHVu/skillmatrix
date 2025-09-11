@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.*;
 import com.das.skillmatrix.dto.request.LoginRequest;
 import com.das.skillmatrix.dto.request.RefreshTokenRequest;
 import com.das.skillmatrix.dto.response.ApiResponse;
-import com.das.skillmatrix.dto.response.ErrorResponse;
 import com.das.skillmatrix.dto.response.LoginResponse;
 import com.das.skillmatrix.dto.response.RefreshTokenResponse;
 import com.das.skillmatrix.service.AuthService;
@@ -26,49 +25,18 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request)
+            throws AuthException {
 
-        try {
-            LoginResponse response = authService.login(request);
-            return ResponseEntity.ok(new ApiResponse<>(response, true, null));
-        } catch (AuthException e) {
-            return ResponseEntity.status(401)
-                    .body(new ApiResponse<>(null,
-                            false,
-                            new ErrorResponse(
-                                    e.getMessage(),
-                                    401)));
-        } catch (Exception e) {
-            return ResponseEntity.status(500)
-                    .body(new ApiResponse<>(null,
-                            false,
-                            new ErrorResponse(
-                                    e.getMessage(),
-                                    500)));
-        }
+        LoginResponse response = authService.login(request);
+        return ResponseEntity.ok(new ApiResponse<>(response, true, null));
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<RefreshTokenResponse>> refreshToken(
-            @Valid @RequestBody RefreshTokenRequest request) {
+            @Valid @RequestBody RefreshTokenRequest request) throws AuthException {
 
-        try {
-            RefreshTokenResponse response = authService.refreshToken(request);
-            return ResponseEntity.ok(new ApiResponse<>(response, true, null));
-        } catch (AuthException e) {
-            return ResponseEntity.status(401)
-                    .body(new ApiResponse<>(null,
-                            false,
-                            new ErrorResponse(
-                                    e.getMessage(),
-                                    401)));
-        } catch (Exception e) {
-            return ResponseEntity.status(500)
-                    .body(new ApiResponse<>(null,
-                            false,
-                            new ErrorResponse(
-                                    e.getMessage(),
-                                    500)));
-        }
+        RefreshTokenResponse response = authService.refreshToken(request);
+        return ResponseEntity.ok(new ApiResponse<>(response, true, null));
     }
 }
