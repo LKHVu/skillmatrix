@@ -32,43 +32,31 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest loginRequest) throws AuthException {
-        try {
+        User user = findByEmail(loginRequest.getEmail());
 
-            User user = findByEmail(loginRequest.getEmail());
+        comparePassword(loginRequest.getPassword(), user.getPasswordHash());
 
-            comparePassword(loginRequest.getPassword(), user.getPasswordHash());
+        String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
 
-            String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
 
-            String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-
-            return new LoginResponse(accessToken, refreshToken);
-
-        } catch (Exception e) {
-            throw new AuthException("Login failed: " + e.getMessage());
-        }
+        return new LoginResponse(accessToken, refreshToken);
     }
 
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request) throws AuthException {
-        try {
+        String refreshToken = request.getRefreshToken();
 
-            String refreshToken = request.getRefreshToken();
-
-            if (!jwtUtil.validateRefreshToken(refreshToken)) {
-                throw new AuthException("Invalid or expired refresh token");
-            }
-
-            String emailUser = jwtUtil.extractEmail(refreshToken);
-
-            User user = findByEmail(emailUser);
-
-            String newAccessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
-
-            return new RefreshTokenResponse(newAccessToken);
-
-        } catch (Exception e) {
-            throw new AuthException("Refresh token failed: " + e.getMessage());
+        if (!jwtUtil.validateRefreshToken(refreshToken)) {
+            throw new AuthException("Invalid or expired refresh token");
         }
+
+        String emailUser = jwtUtil.extractEmail(refreshToken);
+
+        User user = findByEmail(emailUser);
+
+        String newAccessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
+
+        return new RefreshTokenResponse(newAccessToken);
     }
 
     private User findByEmail(String email) throws AuthException {
