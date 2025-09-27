@@ -62,14 +62,14 @@ public class AuthService {
     private User findByEmail(String email) throws AuthException {
         User user = userRepository.findUserByEmail(email);
         if (user == null) {
-            throw new AuthException("Invalid email or password");
+            throw new AuthException("ACCOUNT_NOT_FOUND");
         }
         return user;
     }
 
     private void comparePassword(String rawPassword, String hashedPassword) throws AuthException {
         if (!passwordEncoder.matches(rawPassword, hashedPassword)) {
-            throw new AuthException("Invalid email or password");
+            throw new AuthException("WRONG_PASSWORD");
         }
     }
 
