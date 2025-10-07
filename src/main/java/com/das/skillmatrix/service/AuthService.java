@@ -20,15 +20,15 @@ import jakarta.security.auth.message.AuthException;
 public class AuthService {
 
     private final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final JwtUtil jwtUtil;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    public AuthService(PasswordEncoder passwordEncoder) {
+    public AuthService(PasswordEncoder passwordEncoder,
+                       UserRepository userRepository,
+                       JwtUtil jwtUtil) {
         this.passwordEncoder = passwordEncoder;
+        this.userRepository = userRepository;
+        this.jwtUtil = jwtUtil;
     }
 
     public LoginResponse login(LoginRequest loginRequest) throws AuthException {
