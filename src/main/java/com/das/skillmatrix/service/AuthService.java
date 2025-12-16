@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.das.skillmatrix.dto.request.LoginRequest;
+import com.das.skillmatrix.dto.request.LogoutRequest;
 import com.das.skillmatrix.dto.request.RefreshTokenRequest;
 import com.das.skillmatrix.dto.response.LoginResponse;
 import com.das.skillmatrix.dto.response.RefreshTokenResponse;
@@ -72,5 +73,12 @@ public class AuthService {
             throw new AuthException("WRONG_PASSWORD");
         }
     }
-
+    
+    public String logout(LogoutRequest request) throws AuthException{
+    	String emailUser = jwtUtil.extractEmail(request.getAccessToken());
+    	if (!jwtUtil.validateAccessToken(request.getAccessToken(), emailUser)) {
+    		throw new AuthException();
+    	}
+    		return "Logout Success";
+    	}
 }
