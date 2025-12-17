@@ -11,6 +11,7 @@ import com.das.skillmatrix.dto.response.RefreshTokenResponse;
 import com.das.skillmatrix.service.AuthService;
 
 import jakarta.security.auth.message.AuthException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,5 +39,11 @@ public class AuthController {
 
         RefreshTokenResponse response = authService.refreshToken(request);
         return ResponseEntity.ok(new ApiResponse<>(response, true, null));
+    }
+    
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request, @Valid @RequestBody RefreshTokenRequest token) throws AuthException{
+    	String response = authService.logout(request,token);
+    	return ResponseEntity.ok(new ApiResponse<>(response, true, null));
     }
 }
