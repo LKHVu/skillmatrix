@@ -8,6 +8,7 @@ import javax.xml.crypto.Data;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,19 +29,18 @@ import jakarta.servlet.http.HttpServletRequest;
 @Service
 @Transactional
 public class AuthService {
-    private final long refreshExpiration;
+	@Value("${jwt.refresh.expiration}")
+    private long refreshExpiration;
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtUtil jwtUtil;
 
-    public AuthService(@Value("${jwt.refresh.expiration}") long refreshExpiration,
-    				   PasswordEncoder passwordEncoder,
+    public AuthService(PasswordEncoder passwordEncoder,
                        UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        JwtUtil jwtUtil) {
-        this.refreshExpiration = refreshExpiration;
 		this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -55,10 +55,10 @@ public class AuthService {
         String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
 
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
-        // Save refresh_token in DB
+        // Save refresh_token into DB
         refreshTokenInDB.setUser(user);
         refreshTokenInDB.setRefreshToken(refreshToken);
-        refreshTokenInDB.setExpiresAt(LocalDateTime.now().plus(refreshExpiration, ChronoUnit.MILLIS));
+        refreshTokenInDB.setExpiresAt(LocalDateTime.now().plusSeconds(refreshExpiration));
         refreshTokenInDB.setCreatedAt(LocalDateTime.now());
         this.refreshTokenRepository.save(refreshTokenInDB);
 
@@ -95,17 +95,12 @@ public class AuthService {
         }
     }
     
-    public String logout(HttpServletRequest request, RefreshTokenRequest token) throws AuthException{
-    	String authHeader = request.getHeader("Authorization");
-    	if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-    		throw new AuthException();
-    	}
-    	String accessToken = authHeader.substring(7);
+    public String logout(String accessToken, String refreshToken) throws AuthException{
     	if (!jwtUtil.validateAccessToken(accessToken, jwtUtil.extractEmail(accessToken))) {
     		throw new AuthException();
     	}
     	User user = findByEmail(jwtUtil.extractEmail(accessToken));
-    	this.refreshTokenRepository.deleteByRefreshTokenAndUser(token.getRefreshToken(), user);
+    	this.refreshTokenRepository.deleteByRefreshTokenAndUser(refreshToken, user);
     	
     	return "Logout Success";
     }
