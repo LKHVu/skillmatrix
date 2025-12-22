@@ -22,7 +22,11 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AuthController.class)
+@WebMvcTest(controllers = AuthController.class,
+    properties = {
+        "jwt.refresh.expiration=604800",
+    }
+)
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
