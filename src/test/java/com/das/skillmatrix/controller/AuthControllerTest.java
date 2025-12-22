@@ -5,6 +5,7 @@ import com.das.skillmatrix.dto.request.RefreshTokenRequest;
 import com.das.skillmatrix.dto.response.LoginResponse;
 import com.das.skillmatrix.dto.response.RefreshTokenResponse;
 import com.das.skillmatrix.service.AuthService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import jakarta.security.auth.message.AuthException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -34,6 +36,9 @@ class AuthControllerTest {
 
     @MockBean
     private AuthService authService;
+    
+    @MockBean
+    private HttpServletRequest request;
 
     @Test
     @DisplayName("POST /api/auth/login should return 200 and tokens when credentials are valid")
@@ -97,5 +102,11 @@ class AuthControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
+    }
+    
+    @Test
+    @DisplayName("POST /api/auth/logout should return 200 when token is valid")
+    void logout_shouldReturnOK_thenTokenIsValid() throws Exception {
+    	
     }
 }
