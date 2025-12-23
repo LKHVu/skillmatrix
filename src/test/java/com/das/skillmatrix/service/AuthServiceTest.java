@@ -4,7 +4,9 @@ import com.das.skillmatrix.dto.request.LoginRequest;
 import com.das.skillmatrix.dto.request.RefreshTokenRequest;
 import com.das.skillmatrix.dto.response.LoginResponse;
 import com.das.skillmatrix.dto.response.RefreshTokenResponse;
+import com.das.skillmatrix.entity.RefreshToken;
 import com.das.skillmatrix.entity.User;
+import com.das.skillmatrix.repository.RefreshTokenRepository;
 import com.das.skillmatrix.repository.UserRepository;
 import com.das.skillmatrix.security.JwtUtil;
 import jakarta.security.auth.message.AuthException;
@@ -19,7 +21,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+
+import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -30,6 +34,9 @@ class AuthServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+    
     @Mock
     private JwtUtil jwtUtil;
 
@@ -60,6 +67,7 @@ class AuthServiceTest {
 
         assertEquals("access-token", response.getAccessToken());
         assertEquals("refresh-token", response.getRefreshToken());
+        verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
     }
 
     @Test
@@ -109,5 +117,31 @@ class AuthServiceTest {
 
         AuthException ex = assertThrows(AuthException.class, () -> authService.refreshToken(request));
         assertEquals("Invalid or expired refresh token", ex.getMessage());
+    }
+    
+    @Test
+    @DisplayName("logout() should return success when token is valid")
+    void logout_shoutReturnSuccess_whenTokenIsValid() throws AuthException {
+        when(jwtUtil.extractEmail("valid-token")).thenReturn("user@example.com"); 
+        when(jwtUtil.validateAccessToken("valid-token", "user@example.com")).thenReturn(true);
+        when(userRepository.findUserByEmail("user@example.com")).thenReturn(mockUser);
+
+        String result = authService.logout("valid-token");
+
+        assertEquals("Logout Success", result);
+
+        verify(refreshTokenRepository, times(1)).deleteByUser(mockUser);
+    }
+    
+    @Test
+    @DisplayName("logout() should throw AuthException when token is invalid")
+    void logout_shouldThrowException_whenTokenIsInvalid(){
+    	when(jwtUtil.extractEmail("invalid-token")).thenReturn("user@example.com");
+    	when(jwtUtil.validateAccessToken("invalid-token", "user@example.com")).thenReturn(false);
+    	
+    	AuthException ex = assertThrows(AuthException.class, () -> authService.logout("invalid-token"));
+    	assertEquals("Invalid or expired access token", ex.getMessage());
+    	
+    	verify(refreshTokenRepository, never()).deleteByUser(any(User.class));
     }
 }
