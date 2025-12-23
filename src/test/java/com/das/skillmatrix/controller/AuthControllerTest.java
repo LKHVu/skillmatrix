@@ -5,6 +5,7 @@ import com.das.skillmatrix.dto.request.RefreshTokenRequest;
 import com.das.skillmatrix.dto.response.LoginResponse;
 import com.das.skillmatrix.dto.response.RefreshTokenResponse;
 import com.das.skillmatrix.service.AuthService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import jakarta.security.auth.message.AuthException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -22,7 +24,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AuthController.class)
+@WebMvcTest(controllers = AuthController.class,
+	properties = {"jwt.refresh.expiration=604800"})
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
 
@@ -96,6 +99,30 @@ class AuthControllerTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+    
+    @Test
+    @DisplayName("POST /api/auth/logout should return 200 when token is valid")
+    void logout_shouldReturnOK_thenTokenIsValid() throws Exception {
+        when(authService.logout("valid-token")).thenReturn("Logout Success");
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer valid-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value("Logout Success"))
+                .andExpect(cookie().exists("refresh_token"))   
+                .andExpect(cookie().maxAge("refresh_token", 0));
+    }
+    
+    @Test
+    @DisplayName("POST /api/auth/logout should return 401 when token is invalid")
+    void logout_shouldReturnUnAuthorized_thenTokenIsInValid() throws Exception {
+        when(authService.logout("invalid-token")).thenThrow(new AuthException("Invalid credentials"));
+
+        mockMvc.perform(post("/api/auth/logout")
+                        .header("Authorization", "Bearer invalid-token"))
                 .andExpect(status().isUnauthorized());
     }
 }
