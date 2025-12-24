@@ -122,11 +122,9 @@ class AuthServiceTest {
     @Test
     @DisplayName("logout() should return success when token is valid")
     void logout_shoutReturnSuccess_whenTokenIsValid() throws AuthException {
-        when(jwtUtil.extractEmail("valid-token")).thenReturn("user@example.com"); 
-        when(jwtUtil.validateAccessToken("valid-token", "user@example.com")).thenReturn(true);
         when(userRepository.findUserByEmail("user@example.com")).thenReturn(mockUser);
 
-        String result = authService.logout("valid-token");
+        String result = authService.logout("user@example.com");
 
         assertEquals("Logout Success", result);
 
@@ -134,13 +132,10 @@ class AuthServiceTest {
     }
     
     @Test
-    @DisplayName("logout() should throw AuthException when token is invalid")
-    void logout_shouldThrowException_whenTokenIsInvalid(){
-    	when(jwtUtil.extractEmail("invalid-token")).thenReturn("user@example.com");
-    	when(jwtUtil.validateAccessToken("invalid-token", "user@example.com")).thenReturn(false);
-    	
-    	AuthException ex = assertThrows(AuthException.class, () -> authService.logout("invalid-token"));
-    	assertEquals("Invalid or expired access token", ex.getMessage());
+    @DisplayName("logout() should throw AuthException when account not found")
+    void logout_shouldThrowException_whenAccountNotFound(){
+    	AuthException ex = assertThrows(AuthException.class, () -> authService.logout("invalid-email@example.com"));
+    	assertEquals("ACCOUNT_NOT_FOUND", ex.getMessage());
     	
     	verify(refreshTokenRepository, never()).deleteByUser(any(User.class));
     }

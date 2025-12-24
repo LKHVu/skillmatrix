@@ -95,11 +95,8 @@ public class AuthService {
         }
     }
     
-    public String logout(String accessToken) throws AuthException{
-    	if (!jwtUtil.validateAccessToken(accessToken, jwtUtil.extractEmail(accessToken))) {
-    		throw new AuthException("Invalid or expired access token");
-    	}
-    	User user = findByEmail(jwtUtil.extractEmail(accessToken));
+    public String logout(String email) throws AuthException{
+    	User user = findByEmail(email);
     	this.refreshTokenRepository.deleteByUser(user);
     	
     	return "Logout Success";
