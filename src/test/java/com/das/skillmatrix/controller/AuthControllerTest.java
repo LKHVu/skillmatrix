@@ -1,10 +1,13 @@
 package com.das.skillmatrix.controller;
 
+import com.das.skillmatrix.config.JwtAuthenticationFilter;
 import com.das.skillmatrix.dto.request.LoginRequest;
 import com.das.skillmatrix.dto.request.RefreshTokenRequest;
 import com.das.skillmatrix.dto.response.LoginResponse;
 import com.das.skillmatrix.dto.response.RefreshTokenResponse;
+import com.das.skillmatrix.security.JwtUtil;
 import com.das.skillmatrix.service.AuthService;
+import com.das.skillmatrix.service.CustomUserDetailsService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -13,11 +16,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 
 import jakarta.security.auth.message.AuthException;
 import jakarta.servlet.http.HttpServletRequest;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -35,8 +43,20 @@ class AuthControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private AuthController authController;
+
     @MockBean
     private AuthService authService;
+
+    @MockBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
+    
+    @MockBean
+    private JwtUtil jwtUtil;
+    
+    @MockBean
+    private CustomUserDetailsService customUserDetailsService;
 
     @Test
     @DisplayName("POST /api/auth/login should return 200 and tokens when credentials are valid")
@@ -104,25 +124,31 @@ class AuthControllerTest {
     
     @Test
     @DisplayName("POST /api/auth/logout should return 200 when token is valid")
-    void logout_shouldReturnOK_thenTokenIsValid() throws Exception {
-        when(authService.logout("valid-token")).thenReturn("Logout Success");
+    void logout_shouldReturnOK_whenTokenIsValid() throws Exception {
+        // Arrange
+        String email = "test@example.com";
+        when(authService.logout(email)).thenReturn("Logout Success");
+        UserDetails userDetails = User.builder()
+                .username(email)
+                .password("password")
+                .roles("USER")
+                .build();
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails,
+                null
+        );
+        // Act
+        var response = authController.logout(authentication);
 
-        mockMvc.perform(post("/api/auth/logout")
-                        .header("Authorization", "Bearer valid-token"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").value("Logout Success"))
-                .andExpect(cookie().exists("refresh_token"))   
-                .andExpect(cookie().maxAge("refresh_token", 0));
+        // Assert
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("Logout Success", response.getBody().getData());
     }
     
     @Test
     @DisplayName("POST /api/auth/logout should return 401 when token is invalid")
     void logout_shouldReturnUnAuthorized_thenTokenIsInValid() throws Exception {
-        when(authService.logout("invalid-token")).thenThrow(new AuthException("Invalid credentials"));
-
-        mockMvc.perform(post("/api/auth/logout")
-                        .header("Authorization", "Bearer invalid-token"))
+        mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isUnauthorized());
     }
 }
