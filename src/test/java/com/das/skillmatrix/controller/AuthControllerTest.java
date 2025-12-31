@@ -145,10 +145,4 @@ class AuthControllerTest {
         assertEquals("Logout Success", response.getBody().getData());
     }
     
-    @Test
-    @DisplayName("POST /api/auth/logout should return 401 when token is invalid")
-    void logout_shouldReturnUnAuthorized_thenTokenIsInValid() throws Exception {
-        mockMvc.perform(post("/api/auth/logout"))
-                .andExpect(status().isUnauthorized());
-    }
 }

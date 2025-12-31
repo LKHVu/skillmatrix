@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,11 +57,9 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse<>(response, true, null));
     }
     
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<String>> logout(Authentication authentication) throws AuthException{
-    	if (authentication == null) {
-    		throw new AuthException("Unauthorized");
-    	}
     	String response = authService.logout(authentication.getName());
     	// Set refresh_token into cookie
         ResponseCookie springCookie = ResponseCookie.from("refresh_token", null).httpOnly(true)
