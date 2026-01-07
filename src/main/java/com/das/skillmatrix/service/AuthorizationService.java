@@ -97,7 +97,7 @@ public class AuthorizationService {
     }
     // Team (Manager)
     public boolean isTeamManagerOwner(Long teamId){
-        if (isAdmin()) return true;
+        if (isAdmin() || isManager()) return true;
         Authentication authentication = getAuthenticationOrThrow();
         User user = userRepository.findUserByEmail(authentication.getName());
         // if user or team not found, return false
@@ -123,7 +123,7 @@ public class AuthorizationService {
         Team team = teamRepository.findById(teamId).orElse(null);
         if (user == null || user.getUserId() == null) return false;
         if (team == null) return false;
-        return teamMemberRepository.existsByTeamIdAndUserId(team.getTeamId(), user.getUserId());
+        return teamMemberRepository.existsByTeam_TeamIdAndUser_UserId(team.getTeamId(), user.getUserId());
     }
 
     public boolean requireTeamMemberAccess(Long teamId){
@@ -150,6 +150,10 @@ public class AuthorizationService {
     // Helper methods
     private boolean isAdmin(){
         return hasRole("ADMIN");
+    }
+
+    private boolean isManager(){
+        return hasRole("MANAGER");
     }
 
     private boolean hasRole(String role){

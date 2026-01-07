@@ -4,6 +4,7 @@
  */
 package com.das.skillmatrix.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -30,6 +31,9 @@ public class Team {
     private Long teamId;
 
     private String name;
+
+    @Column(columnDefinition = "MEDIUMTEXT")
+    private String description;
 
     @ManyToOne
     @JoinColumn(name = "manager_id")
