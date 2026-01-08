@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .csrf().disable()
                 .authorizeHttpRequests(auth -> auth
                 .requestMatchers(WHITELIST).permitAll() // whitelist these
+                .requestMatchers("/api/careers/**").hasRole("ADMIN")
                 .anyRequest().authenticated() // everything else needs JWT
                 )
                 .exceptionHandling(e -> e

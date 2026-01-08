@@ -41,6 +41,58 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.error("Bad request - Error: {}", e.getMessage());
+
+        String userMessage;
+        HttpStatus status;
+
+        switch (e.getMessage()) {
+            case "CAREER_NOT_FOUND":
+                userMessage = "Career not found";
+                status = HttpStatus.NOT_FOUND;
+                break;
+            case "CAREER_NAME_EXISTS":
+                userMessage = "Career name already exists";
+                status = HttpStatus.CONFLICT;
+                break;
+            default:
+                userMessage = e.getMessage() != null ? e.getMessage() : "Bad request";
+                status = HttpStatus.BAD_REQUEST;
+        }
+
+        ErrorResponse errorResponse = new ErrorResponse(userMessage, status.value());
+        ApiResponse<Object> response = new ApiResponse<>(null, false, errorResponse);
+        return ResponseEntity.status(status).body(response);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalStateException(IllegalStateException e) {
+        log.error("Conflict - Error: {}", e.getMessage());
+
+        String userMessage;
+        HttpStatus status;
+
+        switch (e.getMessage()) {
+            case "CAREER_HAS_DEPARTMENTS":
+                userMessage = "Cannot delete career because it has departments";
+                status = HttpStatus.CONFLICT;
+                break;
+            case "CAREER_DELETE_CONFIRM_REQUIRED":
+                userMessage = "This career is already assigned (departments/positions). Confirmation is required.";
+                status = HttpStatus.CONFLICT;
+                break;
+            default:
+                userMessage = e.getMessage() != null ? e.getMessage() : "Conflict";
+                status = HttpStatus.CONFLICT;
+        }
+
+        ErrorResponse errorResponse = new ErrorResponse(userMessage, status.value());
+        ApiResponse<Object> response = new ApiResponse<>(null, false, errorResponse);
+        return ResponseEntity.status(status).body(response);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Object>> handleValidationException(MethodArgumentNotValidException e) {
         log.error("Validation failed - {}", e.getMessage());

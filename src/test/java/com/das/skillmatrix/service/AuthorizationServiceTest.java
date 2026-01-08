@@ -207,7 +207,7 @@ class AuthorizationServiceTest {
         Team team = new Team();
         team.setTeamId(2L);
         when(teamRepository.findById(2L)).thenReturn(Optional.of(team));
-        when(teamMemberRepository.existsByTeamIdAndUserId(2L, 1L)).thenReturn(true);
+        when(teamMemberRepository.existsByTeam_TeamIdAndUser_UserId(2L, 1L)).thenReturn(true);
 
         assertTrue(authorizationService.isTeamMemberAccess(2L));
     }
@@ -220,7 +220,7 @@ class AuthorizationServiceTest {
         Team team = new Team();
         team.setTeamId(2L);
         when(teamRepository.findById(2L)).thenReturn(Optional.of(team));
-        when(teamMemberRepository.existsByTeamIdAndUserId(2L, 1L)).thenReturn(false);
+        when(teamMemberRepository.existsByTeam_TeamIdAndUser_UserId(2L, 1L)).thenReturn(false);
     
         assertThrows(AccessDeniedException.class, () -> authorizationService.requireTeamMemberAccess(2L));
     }
