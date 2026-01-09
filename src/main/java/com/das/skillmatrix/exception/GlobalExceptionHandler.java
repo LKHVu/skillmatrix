@@ -41,6 +41,32 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Object>> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.error("Bad request - Error: {}", e.getMessage());
+
+        String userMessage;
+        HttpStatus status;
+
+        switch (e.getMessage()) {
+            case "CAREER_NOT_FOUND":
+                userMessage = "Career not found";
+                status = HttpStatus.NOT_FOUND;
+                break;
+            case "CAREER_NAME_EXISTS":
+                userMessage = "Career name already exists";
+                status = HttpStatus.CONFLICT;
+                break;
+            default:
+                userMessage = e.getMessage() != null ? e.getMessage() : "Bad request";
+                status = HttpStatus.BAD_REQUEST;
+        }
+
+        ErrorResponse errorResponse = new ErrorResponse(userMessage, status.value());
+        ApiResponse<Object> response = new ApiResponse<>(null, false, errorResponse);
+        return ResponseEntity.status(status).body(response);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Object>> handleValidationException(MethodArgumentNotValidException e) {
         log.error("Validation failed - {}", e.getMessage());

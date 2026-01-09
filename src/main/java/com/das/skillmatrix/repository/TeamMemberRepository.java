@@ -7,5 +7,5 @@ import com.das.skillmatrix.entity.TeamMember;
 
 @Repository
 public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
-    boolean existsByTeamIdAndUserId(Long teamId, Long userId);
+    boolean existsByTeam_TeamIdAndUser_UserId(Long teamId, Long userId);
 }
