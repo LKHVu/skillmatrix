@@ -91,4 +91,14 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<Object>> handleResourceNotFoundException(ResourceNotFoundException e) {
+        log.error("Resource not found - Error: {}", e.getMessage());
+
+        ErrorResponse errorResponse = new ErrorResponse(e.getMessage(), 404);
+        ApiResponse<Object> response = new ApiResponse<>(null, false, errorResponse);
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
 }
