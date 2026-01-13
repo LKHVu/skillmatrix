@@ -41,8 +41,8 @@ public class TeamService {
                                 team.getTeamId(),
                                 team.getName(),
                                 team.getDescription(),
-                                new TeamResponse.Manager(manager.getUserId(), manager.getEmail(),
-                                                manager.getFullName()),
+                                manager != null ? new TeamResponse.Manager(manager.getUserId(), manager.getEmail(),
+                                                manager.getFullName()) : null,
                                 new TeamResponse.Department(department.getDepartmentId(), department.getName(),
                                                 department.getDescription()));
         }
@@ -55,7 +55,7 @@ public class TeamService {
                 Team team = new Team();
                 team.setName(teamRequest.getName());
                 team.setDescription(teamRequest.getDescription());
-                team.setManager(manager);
+                team.setManagers(List.of(manager)); // Set as single item list
                 team.setDepartment(department);
                 teamRepository.save(team);
 
@@ -71,7 +71,7 @@ public class TeamService {
                                 .orElseThrow(() -> new ResourceNotFoundException("DEPARTMENT_NOT_FOUND"));
                 team.setName(teamRequest.getName());
                 team.setDescription(teamRequest.getDescription());
-                team.setManager(manager);
+                team.setManagers(List.of(manager)); // update manager list
                 team.setDepartment(department);
                 teamRepository.save(team);
 
@@ -82,7 +82,10 @@ public class TeamService {
                 Page<Team> teams = teamRepository.findAll(pageable);
                 // Convert Team to TeamResponse
                 List<TeamResponse> teamResponses = teams.stream()
-                                .map(team -> toTeamResponse(team, team.getManager(), team.getDepartment()))
+                                .map(team -> {
+                                        User manager = team.getManagers().isEmpty() ? null : team.getManagers().get(0);
+                                        return toTeamResponse(team, manager, team.getDepartment());
+                                })
                                 .toList();
                 return new PageResponse<>(
                                 teamResponses,
@@ -97,7 +100,8 @@ public class TeamService {
         public TeamResponse getTeamById(Long teamId) {
                 Team team = teamRepository.findById(teamId)
                                 .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
-                return toTeamResponse(team, team.getManager(), team.getDepartment());
+                User manager = team.getManagers().isEmpty() ? null : team.getManagers().get(0);
+                return toTeamResponse(team, manager, team.getDepartment());
         }
 
         public void deleteTeam(Long teamId) {
@@ -107,4 +111,17 @@ public class TeamService {
                 teamRepository.delete(team);
         }
 
+        public void assignManagers(Long teamId, List<Long> managerIds) {
+                Team team = teamRepository.findById(teamId)
+                                .orElseThrow(() -> new IllegalArgumentException("TEAM_NOT_FOUND"));
+
+                // Check permissions: Must be Admin OR Career Manager OR Department Manager
+                // Note: The controller typically handles the permission check (e.g.
+                // PermissionService.checkDepartmentAccess)
+                // We assume Controller handles the @PreAuthorize check.
+
+                List<User> managers = userRepository.findAllById(managerIds);
+                team.setManagers(managers);
+                teamRepository.save(team);
+        }
 }

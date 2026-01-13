@@ -1,19 +1,18 @@
 package com.das.skillmatrix.dto.response;
 
-import java.util.List;
-
 import com.das.skillmatrix.entity.GeneralStatus;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
-public class CareerDetailResponse {
-    private Long careerId;
+@NoArgsConstructor
+public class DepartmentResponse {
+    private Long departmentId;
     private String name;
     private String description;
-    private long departmentsCount;
-    private List<DepartmentBrief> departments;
+    private Long careerId;
     private GeneralStatus status;
 }

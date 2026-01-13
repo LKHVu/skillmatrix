@@ -1,8 +1,7 @@
 package com.das.skillmatrix.service;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 import java.util.Optional;
 
@@ -63,7 +62,7 @@ class AuthorizationServiceTest {
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
-    private User user(Long userId, String email){
+    private User user(Long userId, String email) {
         User user = new User();
         user.setUserId(userId);
         user.setEmail(email);
@@ -84,7 +83,7 @@ class AuthorizationServiceTest {
     void isOwner_shouldReturnTrue_whenUserIsSelf() {
         loginAsUser("user@example.com", "USER");
         when(userRepository.findUserByEmail("user@example.com")).thenReturn(user(1L, "user@example.com"));
-        
+
         assertTrue(authorizationService.isOwner(1L));
     }
 
@@ -93,7 +92,7 @@ class AuthorizationServiceTest {
     void requireOwner_shouldThrowAccessDeniedException_whenUserIsNotAdminOrSelf() {
         loginAsUser("user@example.com", "USER");
         when(userRepository.findUserByEmail("user@example.com")).thenReturn(user(1L, "user@example.com"));
-        
+
         assertThrows(AccessDeniedException.class, () -> authorizationService.requireOwner(2L));
     }
 
@@ -106,7 +105,7 @@ class AuthorizationServiceTest {
         Notification notification = new Notification();
         notification.setUser(user(1L, "user@example.com"));
         when(notificationRepository.findById(2L)).thenReturn(Optional.of(notification));
-        
+
         assertTrue(authorizationService.isNotificationOwner(2L));
     }
 
@@ -122,7 +121,6 @@ class AuthorizationServiceTest {
         assertThrows(AccessDeniedException.class, () -> authorizationService.requireNotificationOwner(1L));
     }
 
-    
     // UserUpskillProgress Ownership
     @Test
     @DisplayName("isUserUpskillProgressOwner() should return true when user is owner")
@@ -132,7 +130,7 @@ class AuthorizationServiceTest {
         UserUpskillProgress progress = new UserUpskillProgress();
         progress.setUser(user(1L, "user@example.com"));
         when(userUpskillProgressRepository.findById(2L)).thenReturn(Optional.of(progress));
-        
+
         assertTrue(authorizationService.isUserUpskillProgressOwner(2L));
     }
 
@@ -180,7 +178,7 @@ class AuthorizationServiceTest {
         loginAsUser("user@example.com", "USER");
         when(userRepository.findUserByEmail("user@example.com")).thenReturn(user(1L, "user@example.com"));
         Team team = new Team();
-        team.setManager(user(1L, "user@example.com"));
+        team.setManagers(java.util.List.of(user(1L, "user@example.com")));
         when(teamRepository.findById(1L)).thenReturn(Optional.of(team));
 
         assertTrue(authorizationService.isTeamManagerOwner(1L));
@@ -192,7 +190,7 @@ class AuthorizationServiceTest {
         loginAsUser("user@example.com", "USER");
         when(userRepository.findUserByEmail("user@example.com")).thenReturn(user(1L, "user@example.com"));
         Team team = new Team();
-        team.setManager(user(2L, "owner@example.com"));
+        team.setManagers(java.util.List.of(user(2L, "owner@example.com")));
         when(teamRepository.findById(1L)).thenReturn(Optional.of(team));
 
         assertThrows(AccessDeniedException.class, () -> authorizationService.requireTeamManagerOwner(1L));
@@ -221,7 +219,7 @@ class AuthorizationServiceTest {
         team.setTeamId(2L);
         when(teamRepository.findById(2L)).thenReturn(Optional.of(team));
         when(teamMemberRepository.existsByTeam_TeamIdAndUser_UserId(2L, 1L)).thenReturn(false);
-    
+
         assertThrows(AccessDeniedException.class, () -> authorizationService.requireTeamMemberAccess(2L));
     }
 
