@@ -1,22 +1,25 @@
 package com.das.skillmatrix.service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.das.skillmatrix.dto.request.CareerRequest;
 import com.das.skillmatrix.dto.response.CareerDetailResponse;
 import com.das.skillmatrix.dto.response.CareerResponse;
 import com.das.skillmatrix.dto.response.DepartmentBrief;
 import com.das.skillmatrix.dto.response.PageResponse;
 import com.das.skillmatrix.entity.Career;
-import com.das.skillmatrix.entity.CareerStatus;
+import com.das.skillmatrix.entity.GeneralStatus;
+import com.das.skillmatrix.entity.User;
 import com.das.skillmatrix.repository.CareerRepository;
 import com.das.skillmatrix.repository.DepartmentRepository;
+import com.das.skillmatrix.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Pageable;
 
 @Service
 @Transactional
@@ -25,6 +28,7 @@ public class CareerService {
 
     private final CareerRepository careerRepository;
     private final DepartmentRepository departmentRepository;
+    private final UserRepository userRepository;
 
     public CareerResponse create(CareerRequest req) {
         String name = normalizeName(req.getName());
@@ -54,10 +58,10 @@ public class CareerService {
         Career c = getActiveCareerOrThrow(id);
         long deptCount = departmentRepository.countByCareer_CareerId(id);
         if (deptCount > 0) {
-            c.setStatus(CareerStatus.DEACTIVE);
+            c.setStatus(GeneralStatus.DEACTIVE);
             c.setDeActiveAt(LocalDateTime.now());
         } else {
-            c.setStatus(CareerStatus.DELETED);
+            c.setStatus(GeneralStatus.DELETED);
             c.setDeletedAt(LocalDateTime.now());
         }
         careerRepository.save(c);
@@ -67,14 +71,13 @@ public class CareerService {
     public PageResponse<CareerResponse> list(Pageable pageable) {
         var page = careerRepository.findCareerResponses(pageable);
         return new PageResponse<>(
-            page.getContent(),
-            page.getNumber(),
-            page.getSize(),
-            page.getTotalElements(),
-            page.getTotalPages(),
-            page.hasNext(),
-            page.hasPrevious()
-        );
+                page.getContent(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.hasNext(),
+                page.hasPrevious());
     }
 
     @Transactional(readOnly = true)
@@ -87,17 +90,16 @@ public class CareerService {
                 c.getDescription(),
                 depBriefs.size(),
                 depBriefs,
-                c.getStatus()
-        );
+                c.getStatus());
     }
 
     private Career getActiveCareerOrThrow(Long id) {
-        return careerRepository.findByCareerIdAndStatus(id, CareerStatus.ACTIVE)
+        return careerRepository.findByCareerIdAndStatus(id, GeneralStatus.ACTIVE)
                 .orElseThrow(() -> new IllegalArgumentException("CAREER_NOT_FOUND"));
     }
 
     private Career getVisibleCareerOrThrow(Long id) {
-        return careerRepository.findByCareerIdAndStatusIn(id, List.of(CareerStatus.ACTIVE, CareerStatus.DEACTIVE))
+        return careerRepository.findByCareerIdAndStatusIn(id, List.of(GeneralStatus.ACTIVE, GeneralStatus.DEACTIVE))
                 .orElseThrow(() -> new IllegalArgumentException("CAREER_NOT_FOUND"));
     }
 
@@ -109,5 +111,12 @@ public class CareerService {
 
     private String normalizeName(String name) {
         return name == null ? null : name.trim().replaceAll("\\s+", " ");
+    }
+
+    public void assignManagers(Long careerId, List<Long> managerIds) {
+        Career career = getActiveCareerOrThrow(careerId);
+        List<User> managers = userRepository.findAllById(managerIds);
+        career.setManagers(managers);
+        careerRepository.save(career);
     }
 }
