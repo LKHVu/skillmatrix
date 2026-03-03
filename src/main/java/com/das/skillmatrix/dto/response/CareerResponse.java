@@ -1,6 +1,6 @@
 package com.das.skillmatrix.dto.response;
 
-import com.das.skillmatrix.entity.CareerStatus;
+import com.das.skillmatrix.entity.GeneralStatus;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -11,5 +11,5 @@ public class CareerResponse {
     private Long careerId;
     private String name;
     private String description;
-    private CareerStatus status;
+    private GeneralStatus status;
 }

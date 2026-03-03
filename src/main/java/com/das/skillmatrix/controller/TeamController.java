@@ -29,39 +29,48 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TeamController {
     private final TeamService teamService;
-    
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+
+    @PreAuthorize("@permissionService.checkDepartmentAccess(#teamRequest.departmentId)")
     @PostMapping
     public ResponseEntity<ApiResponse<TeamResponse>> createTeam(@Valid @RequestBody TeamRequest teamRequest) {
         TeamResponse teamResponse = teamService.createTeam(teamRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(teamResponse, true, null));
     }
-    
+
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<TeamResponse>>> getAllTeams(Pageable pageable) {
         PageResponse<TeamResponse> pageResponse = teamService.getAllTeams(pageable);
         return ResponseEntity.ok(new ApiResponse<>(pageResponse, true, null));
     }
-    
-    @PreAuthorize("@auth.requireTeamManagerOwner(#teamId)")
+
+    @PreAuthorize("@permissionService.checkTeamAccess(#teamId)")
     @PutMapping("/{teamId}")
-    public ResponseEntity<ApiResponse<TeamResponse>> updateTeam(@PathVariable Long teamId, @Valid @RequestBody TeamRequest teamRequest) {
+    public ResponseEntity<ApiResponse<TeamResponse>> updateTeam(@PathVariable Long teamId,
+            @Valid @RequestBody TeamRequest teamRequest) {
         TeamResponse teamResponse = teamService.updateTeam(teamId, teamRequest);
         return ResponseEntity.ok(new ApiResponse<>(teamResponse, true, null));
     }
 
-    @PreAuthorize("@auth.requireTeamManagerOwner(#teamId)")
+    @PreAuthorize("@permissionService.checkTeamAccess(#teamId)")
     @GetMapping("/{teamId}")
     public ResponseEntity<ApiResponse<TeamResponse>> getTeamById(@PathVariable Long teamId) {
         TeamResponse teamResponse = teamService.getTeamById(teamId);
         return ResponseEntity.ok(new ApiResponse<>(teamResponse, true, null));
     }
 
-    @PreAuthorize("@auth.requireTeamManagerOwner(#teamId)")
+    @PreAuthorize("@permissionService.checkTeamAccess(#teamId)")
     @DeleteMapping("/{teamId}")
     public ResponseEntity<Void> deleteTeam(@PathVariable Long teamId) {
         teamService.deleteTeam(teamId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    @PreAuthorize("@permissionService.canManageTeam(#teamId)")
+    @PostMapping("/{teamId}/managers")
+    public ResponseEntity<ApiResponse<Void>> assignManagers(@PathVariable Long teamId,
+            @RequestBody java.util.List<Long> managerIds) {
+        teamService.assignManagers(teamId, managerIds);
+        return ResponseEntity.ok(new ApiResponse<>(null, true, null));
     }
 }

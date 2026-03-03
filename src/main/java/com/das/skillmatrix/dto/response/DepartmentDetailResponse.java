@@ -6,14 +6,17 @@ import com.das.skillmatrix.entity.GeneralStatus;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
-public class CareerDetailResponse {
-    private Long careerId;
+@NoArgsConstructor
+public class DepartmentDetailResponse {
+    private Long departmentId;
     private String name;
     private String description;
-    private long departmentsCount;
-    private List<DepartmentBrief> departments;
+    private Long careerId;
     private GeneralStatus status;
+    private long totalTeams;
+    private List<TeamBrief> teams;
 }

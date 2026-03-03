@@ -4,7 +4,7 @@ import com.das.skillmatrix.dto.request.CareerRequest;
 import com.das.skillmatrix.dto.response.CareerDetailResponse;
 import com.das.skillmatrix.dto.response.CareerResponse;
 import com.das.skillmatrix.entity.Career;
-import com.das.skillmatrix.entity.CareerStatus;
+import com.das.skillmatrix.entity.GeneralStatus;
 import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.repository.CareerRepository;
 import com.das.skillmatrix.repository.DepartmentRepository;
@@ -43,7 +43,7 @@ class CareerServiceTest {
         return r;
     }
 
-    private Career career(Long id, String name, CareerStatus status) {
+    private Career career(Long id, String name, GeneralStatus status) {
         Career c = new Career();
         c.setCareerId(id);
         c.setName(name);
@@ -56,7 +56,7 @@ class CareerServiceTest {
     void create_shouldCreateNew() {
         when(careerRepository.existsByNameIgnoreCase(eq("IT"))).thenReturn(false);
 
-        Career saved = career(1L, "IT", CareerStatus.ACTIVE);
+        Career saved = career(1L, "IT", GeneralStatus.ACTIVE);
         saved.setDescription("Desc");
         when(careerRepository.save(any(Career.class))).thenReturn(saved);
 
@@ -65,7 +65,7 @@ class CareerServiceTest {
         assertEquals(1L, res.getCareerId());
         assertEquals("IT", res.getName());
         assertEquals("Desc", res.getDescription());
-        assertEquals(CareerStatus.ACTIVE, res.getStatus());
+        assertEquals(GeneralStatus.ACTIVE, res.getStatus());
         verify(careerRepository).save(any(Career.class));
     }
 
@@ -85,7 +85,7 @@ class CareerServiceTest {
     @Test
     @DisplayName("update() should throw when career is not ACTIVE")
     void update_shouldThrow_whenNotActive() {
-        when(careerRepository.findByCareerIdAndStatus(1L, CareerStatus.ACTIVE))
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE))
                 .thenReturn(Optional.empty());
 
         IllegalArgumentException ex = assertThrows(
@@ -98,9 +98,9 @@ class CareerServiceTest {
     @Test
     @DisplayName("update() should throw when rename to existing name")
     void update_shouldThrow_whenRenameToExisting() {
-        Career current = career(1L, "IT", CareerStatus.ACTIVE);
+        Career current = career(1L, "IT", GeneralStatus.ACTIVE);
 
-        when(careerRepository.findByCareerIdAndStatus(1L, CareerStatus.ACTIVE))
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE))
                 .thenReturn(Optional.of(current));
         when(careerRepository.existsByNameIgnoreCase(eq("BANKING"))).thenReturn(true);
 
@@ -115,15 +115,15 @@ class CareerServiceTest {
     @Test
     @DisplayName("delete() should set status=DEACTIVE when career has departments")
     void delete_shouldSetDeactive_whenHasDepartments() {
-        Career c = career(1L, "IT", CareerStatus.ACTIVE);
+        Career c = career(1L, "IT", GeneralStatus.ACTIVE);
 
-        when(careerRepository.findByCareerIdAndStatus(1L, CareerStatus.ACTIVE))
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE))
                 .thenReturn(Optional.of(c));
         when(departmentRepository.countByCareer_CareerId(1L)).thenReturn(2L);
 
         careerService.delete(1L);
 
-        assertEquals(CareerStatus.DEACTIVE, c.getStatus());
+        assertEquals(GeneralStatus.DEACTIVE, c.getStatus());
         assertNotNull(c.getDeActiveAt());
         assertNull(c.getDeletedAt());
         verify(careerRepository).save(c);
@@ -132,15 +132,15 @@ class CareerServiceTest {
     @Test
     @DisplayName("delete() should set status=DELETED when career has no departments")
     void delete_shouldSetDeleted_whenNoDepartments() {
-        Career c = career(1L, "IT", CareerStatus.ACTIVE);
+        Career c = career(1L, "IT", GeneralStatus.ACTIVE);
 
-        when(careerRepository.findByCareerIdAndStatus(1L, CareerStatus.ACTIVE))
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE))
                 .thenReturn(Optional.of(c));
         when(departmentRepository.countByCareer_CareerId(1L)).thenReturn(0L);
 
         careerService.delete(1L);
 
-        assertEquals(CareerStatus.DELETED, c.getStatus());
+        assertEquals(GeneralStatus.DELETED, c.getStatus());
         assertNotNull(c.getDeletedAt());
         assertNull(c.getDeActiveAt());
         verify(careerRepository).save(c);
@@ -149,7 +149,7 @@ class CareerServiceTest {
     @Test
     @DisplayName("detail() should allow ACTIVE/DEACTIVE (not DELETED)")
     void detail_shouldReturnCareerDetail_whenVisible() {
-        Career c = career(1L, "IT", CareerStatus.DEACTIVE);
+        Career c = career(1L, "IT", GeneralStatus.DEACTIVE);
         c.setDescription("Desc");
 
         when(careerRepository.findByCareerIdAndStatusIn(eq(1L), anyList()))
@@ -169,7 +169,7 @@ class CareerServiceTest {
         assertEquals(1L, res.getCareerId());
         assertEquals("IT", res.getName());
         assertEquals("Desc", res.getDescription());
-        assertEquals(CareerStatus.DEACTIVE, res.getStatus());
+        assertEquals(GeneralStatus.DEACTIVE, res.getStatus());
         assertEquals(2, res.getDepartmentsCount());
         assertEquals("Dev", res.getDepartments().get(0).getName());
     }

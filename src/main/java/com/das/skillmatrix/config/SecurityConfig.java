@@ -19,17 +19,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @EnableMethodSecurity
 public class SecurityConfig {
-	private final JwtAuthenticationFilter jwtAuthFilter;
+    private final JwtAuthenticationFilter jwtAuthFilter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     private static final String[] WHITELIST = {
-        "/",
-        "/api/auth/login",
-        "/api/auth/refresh",
-        "/v3/api-docs/**",
-        "/swagger-ui/**",
-        "/swagger-ui.html"
+            "/",
+            "/api/auth/login",
+            "/api/auth/refresh",
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html"
     };
 
     @Bean
@@ -39,14 +39,12 @@ public class SecurityConfig {
                 .and()
                 .csrf().disable()
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers(WHITELIST).permitAll() // whitelist these
-                .requestMatchers("/api/careers/**").hasRole("ADMIN")
-                .anyRequest().authenticated() // everything else needs JWT
+                        .requestMatchers(WHITELIST).permitAll() // whitelist these
+                        .anyRequest().authenticated() // everything else needs JWT
                 )
                 .exceptionHandling(e -> e
-                    .authenticationEntryPoint(customAuthenticationEntryPoint)
-                    .accessDeniedHandler(customAccessDeniedHandler)
-                )
+                        .authenticationEntryPoint(customAuthenticationEntryPoint)
+                        .accessDeniedHandler(customAccessDeniedHandler))
                 .formLogin().disable()
                 .httpBasic().disable()
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

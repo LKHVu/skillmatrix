@@ -1,9 +1,7 @@
 package com.das.skillmatrix.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.util.List;
@@ -63,11 +61,11 @@ class TeamServiceTest {
         t.setTeamId(teamId);
         t.setName(name);
         t.setDescription(description);
-        t.setManager(manager);
+        t.setManagers(java.util.List.of(manager));
         t.setDepartment(department);
         return t;
     }
-    
+
     private static Department department(Long departmentId, String description, String name) {
         Department d = new Department();
         d.setDepartmentId(departmentId);
@@ -149,7 +147,7 @@ class TeamServiceTest {
 
         assertEquals("New Name", existing.getName());
         assertEquals("New desc", existing.getDescription());
-        assertEquals(newManager, existing.getManager());
+        assertEquals(newManager, existing.getManagers().get(0));
 
         verify(teamRepository, times(1)).findById(teamId);
         verify(userRepository, times(1)).findById(2L);
@@ -162,8 +160,8 @@ class TeamServiceTest {
     void updateTeam_shouldThrow_whenTeamNotFound() {
         when(teamRepository.findById(1L)).thenReturn(Optional.empty());
 
-        ResourceNotFoundException ex =
-                assertThrows(ResourceNotFoundException.class, () -> teamService.updateTeam(1L, new TeamRequest("CNTT", "desc", 1L, 1L)));
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                () -> teamService.updateTeam(1L, new TeamRequest("CNTT", "desc", 1L, 1L)));
         assertEquals("TEAM_NOT_FOUND", ex.getMessage());
 
         verify(userRepository, never()).findById(any());

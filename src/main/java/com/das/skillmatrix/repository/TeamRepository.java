@@ -10,6 +10,8 @@ import com.das.skillmatrix.entity.Team;
 
 @Repository
 public interface TeamRepository extends JpaRepository<Team, Long> {
-@EntityGraph(attributePaths = {"manager", "department"})
+    @EntityGraph(attributePaths = { "manager", "department" })
     Page<Team> findAll(Pageable pageable);
+    long countByDepartment_DepartmentId(Long departmentId);
+    java.util.List<Team> findByDepartment_DepartmentId(Long departmentId);
 }
