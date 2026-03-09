@@ -11,25 +11,24 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "audit_logs")
+@Table(name = "business_change_logs")
 @Getter
 @Setter
 @NoArgsConstructor
-public class AuditLog extends BaseEntity {
+public class BusinessChangeLog extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long logId;
+    private Long changeLogId;
 
     private Long userId;
     private String userEmail;
-
-    private String action; // CREATE_CAREER, UPDATE_DEPARTMENT, ...
-    private String entityType; // CAREER, DEPARTMENT, TEAM, ...
+    private String action;
+    private String entityType;
     private Long entityId;
 
     @Column(columnDefinition = "TEXT")
-    private String metadata; // JSON bổ sung
+    private String changes; // JSON: [{"field":"status","oldValue":"ACTIVE","newValue":"DEACTIVE"}]
 
-    private String ipAddress;
+    private String reason;
 }

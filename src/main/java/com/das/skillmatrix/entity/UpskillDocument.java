@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.das.skillmatrix.entity;
 
 import jakarta.persistence.Entity;
@@ -15,16 +11,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- *
- * @author User
- */
 @Entity
 @Table(name = "upskill_documents")
 @Getter
 @Setter
 @NoArgsConstructor
-public class UpskillDocument {
+public class UpskillDocument extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,8 +25,8 @@ public class UpskillDocument {
     private String title;
     private String filePath;
 
-    private String category;  // VD: TRAINING, POLICY
-    private String fileType;  // VD: PDF, DOCX
+    private String category; // VD: TRAINING, POLICY
+    private String fileType; // VD: PDF, DOCX
 
     @ManyToOne
     @JoinColumn(name = "position_id")

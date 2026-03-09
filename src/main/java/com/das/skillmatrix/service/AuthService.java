@@ -1,18 +1,13 @@
 package com.das.skillmatrix.service;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
 
-import javax.xml.crypto.Data;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.das.skillmatrix.annotation.LogActivity;
 import com.das.skillmatrix.dto.request.LoginRequest;
 import com.das.skillmatrix.dto.request.RefreshTokenRequest;
 import com.das.skillmatrix.dto.response.LoginResponse;
@@ -24,12 +19,11 @@ import com.das.skillmatrix.repository.UserRepository;
 import com.das.skillmatrix.security.JwtUtil;
 
 import jakarta.security.auth.message.AuthException;
-import jakarta.servlet.http.HttpServletRequest;
 
 @Service
 @Transactional
 public class AuthService {
-	@Value("${jwt.refresh.expiration}")
+    @Value("${jwt.refresh.expiration}")
     private long refreshExpiration;
 
     private final PasswordEncoder passwordEncoder;
@@ -38,15 +32,16 @@ public class AuthService {
     private final JwtUtil jwtUtil;
 
     public AuthService(PasswordEncoder passwordEncoder,
-                       UserRepository userRepository,
-                       RefreshTokenRepository refreshTokenRepository,
-                       JwtUtil jwtUtil) {
-		this.passwordEncoder = passwordEncoder;
+            UserRepository userRepository,
+            RefreshTokenRepository refreshTokenRepository,
+            JwtUtil jwtUtil) {
+        this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtUtil = jwtUtil;
     }
 
+    @LogActivity(action = "LOGIN", entityType = "USER")
     public LoginResponse login(LoginRequest loginRequest) throws AuthException {
         User user = findByEmail(loginRequest.getEmail());
         RefreshToken refreshTokenInDB = new RefreshToken();
@@ -59,7 +54,6 @@ public class AuthService {
         refreshTokenInDB.setUser(user);
         refreshTokenInDB.setRefreshToken(refreshToken);
         refreshTokenInDB.setExpiresAt(LocalDateTime.now().plusSeconds(refreshExpiration));
-        refreshTokenInDB.setCreatedAt(LocalDateTime.now());
         this.refreshTokenRepository.save(refreshTokenInDB);
 
         return new LoginResponse(accessToken, refreshToken);
@@ -94,11 +88,12 @@ public class AuthService {
             throw new AuthException("WRONG_PASSWORD");
         }
     }
-    
-    public String logout(String email) throws AuthException{
-    	User user = findByEmail(email);
-    	this.refreshTokenRepository.deleteByUser(user);
-    	
-    	return "Logout Success";
+
+    @LogActivity(action = "LOGOUT", entityType = "USER")
+    public String logout(String email) throws AuthException {
+        User user = findByEmail(email);
+        this.refreshTokenRepository.deleteByUser(user);
+
+        return "Logout Success";
     }
 }

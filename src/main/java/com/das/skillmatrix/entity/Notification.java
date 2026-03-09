@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.das.skillmatrix.entity;
 
 import jakarta.persistence.Entity;
@@ -15,16 +11,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- *
- * @author User
- */
 @Entity
 @Table(name = "notifications")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Notification {
+public class Notification extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long notificationId;
@@ -34,7 +27,6 @@ public class Notification {
     private User user;
 
     private String message;
-    private String type;   // EMAIL, WEB
+    private String type; // EMAIL, WEB
     private String status; // SENT, READ, UNREAD
 }
-

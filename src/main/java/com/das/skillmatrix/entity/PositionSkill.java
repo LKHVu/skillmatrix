@@ -17,7 +17,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class PositionSkill {
+public class PositionSkill extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

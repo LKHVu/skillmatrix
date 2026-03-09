@@ -1,28 +1,26 @@
 package com.das.skillmatrix.service;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.das.skillmatrix.dto.request.CareerRequest;
 import com.das.skillmatrix.dto.response.CareerDetailResponse;
 import com.das.skillmatrix.dto.response.CareerResponse;
 import com.das.skillmatrix.entity.Career;
 import com.das.skillmatrix.entity.GeneralStatus;
-import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.repository.CareerRepository;
 import com.das.skillmatrix.repository.DepartmentRepository;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CareerServiceTest {
@@ -32,6 +30,9 @@ class CareerServiceTest {
 
     @Mock
     private DepartmentRepository departmentRepository;
+
+    @Mock
+    private BusinessChangeLogService businessChangeLogService;
 
     @InjectMocks
     private CareerService careerService;
@@ -76,8 +77,7 @@ class CareerServiceTest {
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> careerService.create(req("IT", "x"))
-        );
+                () -> careerService.create(req("IT", "x")));
         assertEquals("CAREER_NAME_EXISTS", ex.getMessage());
         verify(careerRepository, never()).save(any());
     }
@@ -90,8 +90,7 @@ class CareerServiceTest {
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> careerService.update(1L, req("X", "d"))
-        );
+                () -> careerService.update(1L, req("X", "d")));
         assertEquals("CAREER_NOT_FOUND", ex.getMessage());
     }
 
@@ -106,8 +105,7 @@ class CareerServiceTest {
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> careerService.update(1L, req("BANKING", "d"))
-        );
+                () -> careerService.update(1L, req("BANKING", "d")));
         assertEquals("CAREER_NAME_EXISTS", ex.getMessage());
         verify(careerRepository, never()).save(any());
     }
@@ -155,14 +153,12 @@ class CareerServiceTest {
         when(careerRepository.findByCareerIdAndStatusIn(eq(1L), anyList()))
                 .thenReturn(Optional.of(c));
 
-        Department d1 = new Department();
-        d1.setDepartmentId(10L);
-        d1.setName("Dev");
-        Department d2 = new Department();
-        d2.setDepartmentId(11L);
-        d2.setName("QA");
+        com.das.skillmatrix.dto.response.DepartmentBrief d1 = new com.das.skillmatrix.dto.response.DepartmentBrief(10L,
+                "Dev");
+        com.das.skillmatrix.dto.response.DepartmentBrief d2 = new com.das.skillmatrix.dto.response.DepartmentBrief(11L,
+                "QA");
 
-        when(departmentRepository.findByCareer_CareerId(1L)).thenReturn(List.of(d1, d2));
+        when(departmentRepository.findDepartmentBriefsByCareerId(1L)).thenReturn(List.of(d1, d2));
 
         CareerDetailResponse res = careerService.detail(1L);
 

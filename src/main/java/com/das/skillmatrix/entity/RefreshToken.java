@@ -19,12 +19,13 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class RefreshToken {
-	@Id
+public class RefreshToken extends BaseEntity {
+
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long refreshTokenId;
-	
-	@Column(columnDefinition = "MEDIUMTEXT")
+
+    @Column(columnDefinition = "MEDIUMTEXT")
     private String refreshToken;
 
     @ManyToOne
@@ -32,5 +33,4 @@ public class RefreshToken {
     private User user;
 
     private LocalDateTime expiresAt;
-    private LocalDateTime createdAt;
 }

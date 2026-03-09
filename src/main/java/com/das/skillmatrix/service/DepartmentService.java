@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.das.skillmatrix.annotation.LogActivity;
 import com.das.skillmatrix.dto.request.DepartmentRequest;
 import com.das.skillmatrix.dto.response.DepartmentDetailResponse;
 import com.das.skillmatrix.dto.response.DepartmentResponse;
@@ -33,7 +34,9 @@ public class DepartmentService {
     private final UserRepository userRepository;
     private final PermissionService permissionService;
     private final TeamRepository teamRepository;
+    private final BusinessChangeLogService businessChangeLogService;
 
+    @LogActivity(action = "CREATE_DEPARTMENT", entityType = "DEPARTMENT")
     public DepartmentResponse create(DepartmentRequest req) {
         String name = normalizeName(req.getName());
         Long careerId = req.getCareerId();
@@ -56,22 +59,30 @@ public class DepartmentService {
                 department.getStatus());
     }
 
+    @LogActivity(action = "ASSIGN_DEPT_MANAGERS", entityType = "DEPARTMENT")
     public void assignManagers(Long departmentId, List<Long> managerIds) {
         Department department = getActiveDepartmentOrThrow(departmentId);
+        String oldManagerIds = department.getManagers().stream()
+                .map(u -> u.getUserId().toString()).toList().toString();
         List<User> managers = userRepository.findAllById(managerIds);
         department.setManagers(managers);
         departmentRepository.save(department);
+        businessChangeLogService.log(
+                "REASSIGN_DEPT_MANAGERS", "DEPARTMENT", departmentId,
+                "managerIds", oldManagerIds, managerIds.toString());
     }
 
+    @LogActivity(action = "UPDATE_DEPARTMENT", entityType = "DEPARTMENT")
     public DepartmentResponse update(Long id, DepartmentRequest req) {
         Department department = getActiveDepartmentOrThrow(id);
+        Long oldCareerId = department.getCareer().getCareerId();
 
         String newName = normalizeName(req.getName());
         Long newCareerId = req.getCareerId();
-        if (!department.getCareer().getCareerId().equals(newCareerId)) {
+        if (!oldCareerId.equals(newCareerId)) {
             Career targetCareer = careerRepository.findByCareerIdAndStatus(newCareerId, GeneralStatus.ACTIVE)
                     .orElseThrow(() -> new IllegalArgumentException("TARGET_CAREER_NOT_FOUND_OR_INACTIVE"));
-            if (!permissionService.canMoveDepartment(department.getCareer().getCareerId(), newCareerId)) {
+            if (!permissionService.canMoveDepartment(oldCareerId, newCareerId)) {
                 throw new org.springframework.security.access.AccessDeniedException("ACCESS_DENIED_TO_MIGRATE_CAREER");
             }
             department.setCareer(targetCareer);
@@ -85,6 +96,13 @@ public class DepartmentService {
         }
         department.setDescription(req.getDescription());
         department = departmentRepository.save(department);
+
+        if (!oldCareerId.equals(newCareerId)) {
+            businessChangeLogService.log(
+                    "MIGRATE_DEPARTMENT_CAREER", "DEPARTMENT", id,
+                    "careerId", oldCareerId.toString(), newCareerId.toString());
+        }
+
         return new DepartmentResponse(
                 department.getDepartmentId(),
                 department.getName(),
@@ -97,8 +115,10 @@ public class DepartmentService {
         return name == null ? null : name.trim().replaceAll("\\s+", " ");
     }
 
+    @LogActivity(action = "DELETE_DEPARTMENT", entityType = "DEPARTMENT")
     public void delete(Long id) {
         Department department = getActiveDepartmentOrThrow(id);
+        String oldStatus = department.getStatus().name();
 
         long teamCount = teamRepository.countByDepartment_DepartmentId(id);
         if (teamCount > 0) {
@@ -109,6 +129,9 @@ public class DepartmentService {
             department.setDeletedAt(LocalDateTime.now());
         }
         departmentRepository.save(department);
+        businessChangeLogService.log(
+                "CHANGE_DEPARTMENT_STATUS", "DEPARTMENT", id,
+                "status", oldStatus, department.getStatus().name());
     }
 
     @Transactional(readOnly = true)
