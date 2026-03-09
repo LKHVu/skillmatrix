@@ -45,6 +45,9 @@ class TeamServiceTest {
     @Mock
     private DepartmentRepository departmentRepository;
 
+    @Mock
+    private BusinessChangeLogService businessChangeLogService;
+
     @InjectMocks
     private TeamService teamService;
 

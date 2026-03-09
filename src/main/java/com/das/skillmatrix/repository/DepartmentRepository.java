@@ -36,16 +36,16 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
             """)
     List<DepartmentBrief> findDepartmentBriefsByCareerId(Long careerId);
     @Query("""
-                select new com.das.skillmatrix.dto.response.DepartmentResponse(
-                    d.departmentId,
-                    d.name,
-                    d.description,
-                    d.career.careerId,
-                    d.status
-                )
-                from Department d
-                where d.career.careerId = :careerId
-                and d.status != com.das.skillmatrix.entity.GeneralStatus.DELETED
+            select new com.das.skillmatrix.dto.response.DepartmentResponse(
+                d.departmentId,
+                d.name,
+                d.description,
+                d.career.careerId,
+                d.status
+            )
+            from Department d
+            where d.career.careerId = :careerId
+            and d.status != com.das.skillmatrix.entity.GeneralStatus.DELETED
             """)
     Page<DepartmentResponse> findDepartmentResponsesByCareerId(Long careerId, Pageable pageable);
 }
