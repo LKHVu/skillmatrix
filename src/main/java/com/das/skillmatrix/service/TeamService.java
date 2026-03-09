@@ -1,5 +1,6 @@
 package com.das.skillmatrix.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -7,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.das.skillmatrix.annotation.LogActivity;
 import com.das.skillmatrix.dto.request.TeamRequest;
 import com.das.skillmatrix.dto.response.PageResponse;
 import com.das.skillmatrix.dto.response.TeamResponse;
@@ -26,13 +28,16 @@ public class TeamService {
         private final TeamMemberRepository teamMemberRepository;
         private final UserRepository userRepository;
         private final DepartmentRepository departmentRepository;
+        private final BusinessChangeLogService businessChangeLogService;
 
         public TeamService(TeamRepository teamRepository, UserRepository userRepository,
-                        TeamMemberRepository teamMemberRepository, DepartmentRepository departmentRepository) {
+                        TeamMemberRepository teamMemberRepository, DepartmentRepository departmentRepository,
+                        BusinessChangeLogService businessChangeLogService) {
                 this.teamRepository = teamRepository;
                 this.teamMemberRepository = teamMemberRepository;
                 this.userRepository = userRepository;
                 this.departmentRepository = departmentRepository;
+                this.businessChangeLogService = businessChangeLogService;
         }
 
         // Convert Team to TeamResponse
@@ -47,6 +52,7 @@ public class TeamService {
                                                 department.getDescription()));
         }
 
+        @LogActivity(action = "CREATE_TEAM", entityType = "TEAM")
         public TeamResponse createTeam(TeamRequest teamRequest) {
                 User manager = userRepository.findById(teamRequest.getManagerId())
                                 .orElseThrow(() -> new ResourceNotFoundException("MANAGER_NOT_FOUND"));
@@ -55,13 +61,14 @@ public class TeamService {
                 Team team = new Team();
                 team.setName(teamRequest.getName());
                 team.setDescription(teamRequest.getDescription());
-                team.setManagers(List.of(manager)); // Set as single item list
+                team.setManagers(new ArrayList<>(List.of(manager))); // Set as single item list
                 team.setDepartment(department);
                 teamRepository.save(team);
 
                 return toTeamResponse(team, manager, department);
         }
 
+        @LogActivity(action = "UPDATE_TEAM", entityType = "TEAM")
         public TeamResponse updateTeam(Long teamId, TeamRequest teamRequest) {
                 Team team = teamRepository.findById(teamId)
                                 .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
@@ -71,7 +78,7 @@ public class TeamService {
                                 .orElseThrow(() -> new ResourceNotFoundException("DEPARTMENT_NOT_FOUND"));
                 team.setName(teamRequest.getName());
                 team.setDescription(teamRequest.getDescription());
-                team.setManagers(List.of(manager)); // update manager list
+                team.setManagers(new ArrayList<>(List.of(manager))); // update manager list
                 team.setDepartment(department);
                 teamRepository.save(team);
 
@@ -104,6 +111,7 @@ public class TeamService {
                 return toTeamResponse(team, manager, team.getDepartment());
         }
 
+        @LogActivity(action = "DELETE_TEAM", entityType = "TEAM")
         public void deleteTeam(Long teamId) {
                 Team team = teamRepository.findById(teamId)
                                 .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
@@ -111,17 +119,18 @@ public class TeamService {
                 teamRepository.delete(team);
         }
 
+        @LogActivity(action = "ASSIGN_TEAM_MANAGERS", entityType = "TEAM")
         public void assignManagers(Long teamId, List<Long> managerIds) {
                 Team team = teamRepository.findById(teamId)
                                 .orElseThrow(() -> new IllegalArgumentException("TEAM_NOT_FOUND"));
-
-                // Check permissions: Must be Admin OR Career Manager OR Department Manager
-                // Note: The controller typically handles the permission check (e.g.
-                // PermissionService.checkDepartmentAccess)
-                // We assume Controller handles the @PreAuthorize check.
+                String oldManagerIds = team.getManagers().stream()
+                                .map(u -> u.getUserId().toString()).toList().toString();
 
                 List<User> managers = userRepository.findAllById(managerIds);
                 team.setManagers(managers);
                 teamRepository.save(team);
+                businessChangeLogService.log(
+                                "REASSIGN_TEAM_MANAGERS", "TEAM", teamId,
+                                "managerIds", oldManagerIds, managerIds.toString());
         }
 }

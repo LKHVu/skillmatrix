@@ -1,11 +1,11 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.das.skillmatrix.entity;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+import org.hibernate.envers.RelationTargetAuditMode;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -22,16 +22,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- *
- * @author User
- */
 @Entity
 @Table(name = "users")
+@Audited
 @Getter
 @Setter
 @NoArgsConstructor
-public class User {
+public class User extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,7 +37,9 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @NotAudited
     private String passwordHash;
+
     private String fullName;
 
     private String userAvatar;
@@ -50,6 +49,7 @@ public class User {
     @JoinColumn(name = "department_id")
     private Department department;
 
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
     @ManyToOne
     @JoinColumn(name = "position_id")
     private Position position;
@@ -57,14 +57,17 @@ public class User {
     private String role; // ADMIN, MANAGER, EMPLOYEE
 
     @JsonIgnore
+    @NotAudited
     @ManyToMany(mappedBy = "managers")
     private List<Career> managedCareers = new ArrayList<>();
 
     @JsonIgnore
+    @NotAudited
     @ManyToMany(mappedBy = "managers")
     private List<Department> managedDepartments = new ArrayList<>();
 
     @JsonIgnore
+    @NotAudited
     @ManyToMany(mappedBy = "managers")
     private List<Team> managedTeams = new ArrayList<>();
 }

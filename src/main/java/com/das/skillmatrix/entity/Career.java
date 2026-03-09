@@ -1,12 +1,11 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package com.das.skillmatrix.entity;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -27,16 +26,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- *
- * @author User
- */
 @Entity
 @Table(name = "careers")
+@Audited
 @Getter
 @Setter
 @NoArgsConstructor
-public class Career {
+public class Career extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -56,9 +52,11 @@ public class Career {
     private LocalDateTime deActiveAt;
 
     @JsonIgnore
+    @NotAudited
     @OneToMany(mappedBy = "career", fetch = FetchType.LAZY)
     private List<Department> departments = new ArrayList<>();
 
+    @NotAudited
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "career_managers", joinColumns = @JoinColumn(name = "career_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
     private List<User> managers = new ArrayList<>();

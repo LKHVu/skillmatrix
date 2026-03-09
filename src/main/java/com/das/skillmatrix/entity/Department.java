@@ -4,6 +4,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
@@ -20,21 +23,26 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "departments")
+@Table(name = "departments", uniqueConstraints = {
+        @UniqueConstraint(columnNames = { "name", "career_id" })
+})
+@Audited
 @Getter
 @Setter
 @NoArgsConstructor
-public class Department {
+public class Department extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long departmentId;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     private String description;
@@ -52,9 +60,11 @@ public class Department {
     private Career career;
 
     @JsonIgnore
+    @NotAudited
     @OneToMany(mappedBy = "department", fetch = FetchType.LAZY)
     private List<Team> teams = new ArrayList<>();
 
+    @NotAudited
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "department_managers", joinColumns = @JoinColumn(name = "department_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
     private List<User> managers = new ArrayList<>();

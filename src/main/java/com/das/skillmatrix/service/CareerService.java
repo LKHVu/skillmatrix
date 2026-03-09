@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.das.skillmatrix.annotation.LogActivity;
 import com.das.skillmatrix.dto.request.CareerRequest;
 import com.das.skillmatrix.dto.response.CareerDetailResponse;
 import com.das.skillmatrix.dto.response.CareerResponse;
@@ -29,7 +30,9 @@ public class CareerService {
     private final CareerRepository careerRepository;
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
+    private final BusinessChangeLogService businessChangeLogService;
 
+    @LogActivity(action = "CREATE_CAREER", entityType = "CAREER")
     public CareerResponse create(CareerRequest req) {
         String name = normalizeName(req.getName());
         if (careerRepository.existsByNameIgnoreCase(name)) {
@@ -42,6 +45,7 @@ public class CareerService {
         return new CareerResponse(c.getCareerId(), c.getName(), c.getDescription(), c.getStatus());
     }
 
+    @LogActivity(action = "UPDATE_CAREER", entityType = "CAREER")
     public CareerResponse update(Long id, CareerRequest req) {
         Career c = getActiveCareerOrThrow(id);
         String newName = normalizeName(req.getName());
@@ -54,8 +58,10 @@ public class CareerService {
         return new CareerResponse(c.getCareerId(), c.getName(), c.getDescription(), c.getStatus());
     }
 
+    @LogActivity(action = "DELETE_CAREER", entityType = "CAREER")
     public void delete(Long id) {
         Career c = getActiveCareerOrThrow(id);
+        String oldStatus = c.getStatus().name();
         long deptCount = departmentRepository.countByCareer_CareerId(id);
         if (deptCount > 0) {
             c.setStatus(GeneralStatus.DEACTIVE);
@@ -65,6 +71,9 @@ public class CareerService {
             c.setDeletedAt(LocalDateTime.now());
         }
         careerRepository.save(c);
+        businessChangeLogService.log(
+                "CHANGE_CAREER_STATUS", "CAREER", id,
+                "status", oldStatus, c.getStatus().name());
     }
 
     @Transactional(readOnly = true)
@@ -104,19 +113,23 @@ public class CareerService {
     }
 
     private List<DepartmentBrief> getDepartmentBriefs(Long careerId) {
-        return departmentRepository.findByCareer_CareerId(careerId).stream()
-                .map(d -> new DepartmentBrief(d.getDepartmentId(), d.getName()))
-                .toList();
+        return departmentRepository.findDepartmentBriefsByCareerId(careerId);
     }
 
     private String normalizeName(String name) {
         return name == null ? null : name.trim().replaceAll("\\s+", " ");
     }
 
+    @LogActivity(action = "ASSIGN_CAREER_MANAGERS", entityType = "CAREER")
     public void assignManagers(Long careerId, List<Long> managerIds) {
         Career career = getActiveCareerOrThrow(careerId);
+        String oldManagerIds = career.getManagers().stream()
+                .map(u -> u.getUserId().toString()).toList().toString();
         List<User> managers = userRepository.findAllById(managerIds);
         career.setManagers(managers);
         careerRepository.save(career);
+        businessChangeLogService.log(
+                "REASSIGN_CAREER_MANAGERS", "CAREER", careerId,
+                "managerIds", oldManagerIds, managerIds.toString());
     }
 }
