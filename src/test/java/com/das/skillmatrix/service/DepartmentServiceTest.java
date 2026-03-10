@@ -167,20 +167,17 @@ class DepartmentServiceTest {
     @DisplayName("detail() should return details for Visible department")
     void detail_shouldReturnDetail() {
         Department d = department(10L, "Dev", GeneralStatus.DEACTIVE, career(1L, GeneralStatus.ACTIVE));
-        Team team = new Team();
-        team.setTeamId(100L);
-        team.setName("T1");
-        team.setStatus(GeneralStatus.ACTIVE);
-
+        d.setDescription("Desc");
         when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
-        when(teamRepository.findByDepartment_DepartmentId(10L)).thenReturn(List.of(team));
-
+        when(departmentRepository.countByDepartmentIdAndStatusIn(10L,
+                List.of(GeneralStatus.ACTIVE, GeneralStatus.DEACTIVE))).thenReturn(3L);
         DepartmentDetailResponse res = departmentService.detail(10L);
-
         assertEquals(10L, res.getDepartmentId());
         assertEquals("Dev", res.getName());
-        assertEquals(1, res.getTotalTeams());
-        assertEquals(1, res.getTeams().size());
+        assertEquals("Desc", res.getDescription());
+        assertEquals(1L, res.getCareerId());
+        assertEquals(GeneralStatus.DEACTIVE, res.getStatus());
+        assertEquals(3L, res.getTotalTeams());
     }
 
     @Test

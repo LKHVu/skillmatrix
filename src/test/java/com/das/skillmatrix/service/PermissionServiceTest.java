@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -17,6 +18,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.das.skillmatrix.entity.Career;
+import com.das.skillmatrix.entity.Department;
+import com.das.skillmatrix.entity.Team;
 import com.das.skillmatrix.entity.User;
 import com.das.skillmatrix.repository.CareerRepository;
 import com.das.skillmatrix.repository.DepartmentRepository;
@@ -104,12 +108,17 @@ class PermissionServiceTest {
     void checkTeamAccess_ShouldReturnTrueWhenCareerManager() {
         mockSecurityContext(normalUser.getEmail());
         when(userRepository.findUserByEmail(normalUser.getEmail())).thenReturn(normalUser);
-        when(teamRepository.findCareerIdByTeamId(30L)).thenReturn(Optional.of(10L));
-        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L)).thenReturn(true);
-
+        Career career = new Career();
+        career.setCareerId(10L);
+        career.setManagers(List.of(normalUser));
+        Department dept = new Department();
+        dept.setDepartmentId(20L);
+        dept.setCareer(career);
+        Team team = new Team();
+        team.setTeamId(30L);
+        team.setDepartment(dept);
+        when(teamRepository.findById(30L)).thenReturn(Optional.of(team));
         assertTrue(permissionService.checkTeamAccess(30L));
-        verify(departmentRepository, never()).existsByDepartmentIdAndManagers_UserId(any(), any());
-        verify(teamRepository, never()).existsByTeamIdAndManagers_UserId(any(), any());
     }
 
     @Test
@@ -117,12 +126,18 @@ class PermissionServiceTest {
     void checkTeamAccess_ShouldReturnTrueWhenTeamManager() {
         mockSecurityContext(normalUser.getEmail());
         when(userRepository.findUserByEmail(normalUser.getEmail())).thenReturn(normalUser);
-        when(teamRepository.findCareerIdByTeamId(30L)).thenReturn(Optional.of(10L));
-        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L)).thenReturn(false);
-        when(teamRepository.findDepartmentIdByTeamId(30L)).thenReturn(Optional.of(20L));
-        when(departmentRepository.existsByDepartmentIdAndManagers_UserId(20L, 2L)).thenReturn(false);
-        when(teamRepository.existsByTeamIdAndManagers_UserId(30L, 2L)).thenReturn(true);
-
+        Career career = new Career();
+        career.setCareerId(10L);
+        career.setManagers(List.of());
+        Department dept = new Department();
+        dept.setDepartmentId(20L);
+        dept.setCareer(career);
+        dept.setManagers(List.of());
+        Team team = new Team();
+        team.setTeamId(30L);
+        team.setDepartment(dept);
+        team.setManagers(List.of(normalUser));
+        when(teamRepository.findById(30L)).thenReturn(Optional.of(team));
         assertTrue(permissionService.checkTeamAccess(30L));
     }
 }

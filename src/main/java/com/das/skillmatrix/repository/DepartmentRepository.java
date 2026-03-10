@@ -25,7 +25,7 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     @Query("SELECT d.career.careerId FROM Department d WHERE d.departmentId = :departmentId")
     Optional<Long> findCareerIdByDepartmentId(Long departmentId);
     List<Department> findByStatusAndDeletedAtBefore(GeneralStatus status, LocalDateTime dateTime);
-    @Query("""
+@Query("""
             select new com.das.skillmatrix.dto.response.DepartmentBrief(
                 d.departmentId,
                 d.name
@@ -48,4 +48,6 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
             and d.status != com.das.skillmatrix.entity.GeneralStatus.DELETED
             """)
     Page<DepartmentResponse> findDepartmentResponsesByCareerId(Long careerId, Pageable pageable);
+    List<Department> findByCareer_CareerIdIn(List<Long> careerIds);
+    long countByDepartmentIdAndStatusIn(Long departmentId, List<GeneralStatus> statuses);
 }

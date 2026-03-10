@@ -18,5 +18,4 @@ public class DepartmentDetailResponse {
     private Long careerId;
     private GeneralStatus status;
     private long totalTeams;
-    private List<TeamBrief> teams;
 }
