@@ -170,14 +170,12 @@ class DepartmentServiceTest {
         team.setStatus(GeneralStatus.ACTIVE);
 
         when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
-        when(teamRepository.findByDepartment_DepartmentId(10L)).thenReturn(List.of(team));
 
         DepartmentDetailResponse res = departmentService.detail(10L);
 
         assertEquals(10L, res.getDepartmentId());
         assertEquals("Dev", res.getName());
         assertEquals(1, res.getTotalTeams());
-        assertEquals(1, res.getTeams().size());
     }
 
     @Test

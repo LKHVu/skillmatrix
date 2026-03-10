@@ -1,7 +1,6 @@
 package com.das.skillmatrix.dto.response;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import com.das.skillmatrix.entity.GeneralStatus;
 
@@ -12,12 +11,13 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class TeamResponse {
+public class TeamDetailResponse {
     private Long teamId;
     private String name;
     private String description;
     private GeneralStatus status;
     private LocalDateTime createdAt;
+    private long memberCount;
     private Department department;
 
     @Data

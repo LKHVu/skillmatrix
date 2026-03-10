@@ -58,14 +58,14 @@ public class PermissionService {
         return isTeamManager(user, team);
     }
 
-    private User getCurrentUser() {
+    public User getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated())
             return null;
         return userRepository.findUserByEmail(auth.getName());
     }
 
-    private boolean isAdmin(User user) {
+    public boolean isAdmin(User user) {
         return user != null && "ADMIN".equals(user.getRole());
     }
 
@@ -74,7 +74,7 @@ public class PermissionService {
                 && career.getManagers().stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
     }
 
-    private boolean isDepartmentManager(User user, Department department) {
+    public boolean isDepartmentManager(User user, Department department) {
         return user != null && department != null
                 && department.getManagers().stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
     }
@@ -130,5 +130,58 @@ public class PermissionService {
     private boolean isTeamManager(User user, Team team) {
         return user != null && team != null
                 && team.getManagers().stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
+    }
+
+    // Get the type of manager for the current user
+    public String getManagerType(User user) {
+        if (isAdmin(user)) return "ADMIN";
+        if (!user.getManagedCareers().isEmpty()) return "MANAGER_CAREER";
+        if (!user.getManagedDepartments().isEmpty()) return "MANAGER_DEPARTMENT";
+        if (!user.getManagedTeams().isEmpty()) return "MANAGER_TEAM";
+        return "NONE";
+    }
+
+    // Check if user can move team from one department to another
+    public boolean canMoveTeamDepartment(Long currentDepartmentId, Long targetDepartmentId) {
+        User user = getCurrentUser();
+        if (isAdmin(user)) return true;
+        if (!user.getManagedCareers().isEmpty()) {
+            return checkDepartmentAccess(currentDepartmentId)
+                && checkDepartmentAccess(targetDepartmentId);
+        }
+        if (!user.getManagedDepartments().isEmpty()) {
+            return isDepartmentManager(user, departmentRepository.findById(currentDepartmentId).orElse(null))
+                && isDepartmentManager(user, departmentRepository.findById(targetDepartmentId).orElse(null));
+        }
+        return false;
+    }
+
+    // Check if user is a team manager only, user will not move team to other department
+    public boolean isTeamManagerOnly(User user) {
+        return !isAdmin(user)
+            && user.getManagedCareers().isEmpty()
+            && user.getManagedDepartments().isEmpty()
+            && !user.getManagedTeams().isEmpty();
+    }
+
+    // Check if user can view team detail
+    public boolean checkTeamViewAccess(Long teamId) {
+        User user = getCurrentUser();
+        if (isAdmin(user)) return true;
+        Team team = teamRepository.findById(teamId).orElse(null);
+        if (team == null) return false;
+        // Manager Career: team belongs to the Career the user is managing
+        if (isCareerManager(user, team.getDepartment().getCareer())) return true;
+        // Manager Department: team belongs to the same Career as the Department the user is managing
+        Long teamCareerId = team.getDepartment().getCareer().getCareerId();
+        for (Department dept : user.getManagedDepartments()) {
+            if (dept.getCareer().getCareerId().equals(teamCareerId)) return true;
+        }
+        // Manager Team: team belongs to the same Department as the Team the user is managing
+        Long teamDepartmentId = team.getDepartment().getDepartmentId();
+        for (Team managedTeam : user.getManagedTeams()) {
+            if (managedTeam.getDepartment().getDepartmentId().equals(teamDepartmentId)) return true;
+        }
+        return false;
     }
 }

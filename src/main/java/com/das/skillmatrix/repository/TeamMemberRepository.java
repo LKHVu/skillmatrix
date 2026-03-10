@@ -10,4 +10,6 @@ import com.das.skillmatrix.entity.TeamMember;
 public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
     boolean existsByTeam_TeamIdAndUser_UserId(Long teamId, Long userId);
     void deleteAllByTeam(Team team);
+    boolean existsByTeam_TeamId(Long teamId);
+    long countByTeam_TeamId(Long teamId);
 }

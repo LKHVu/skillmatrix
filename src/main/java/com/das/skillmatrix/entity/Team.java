@@ -52,6 +52,8 @@ public class Team {
 
     private LocalDateTime deActiveAt;
 
+    private LocalDateTime createdAt;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "team_managers", joinColumns = @JoinColumn(name = "team_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
     private List<User> managers = new ArrayList<>();

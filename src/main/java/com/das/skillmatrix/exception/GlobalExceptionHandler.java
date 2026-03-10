@@ -115,8 +115,8 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = new HashMap<>();
         e.getBindingResult().getFieldErrors().forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
 
-        ErrorResponse errorResponse = new ErrorResponse("We can’t find your account!", 400);
-        ApiResponse<Object> response = new ApiResponse<>(errors, false, errorResponse);
+        ErrorResponse errorResponse = new ErrorResponse("Validation failed", 400, errors);
+        ApiResponse<Object> response = new ApiResponse<>(null, false, errorResponse);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }

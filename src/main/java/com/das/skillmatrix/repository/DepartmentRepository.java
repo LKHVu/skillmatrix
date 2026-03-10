@@ -32,4 +32,6 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
         and d.status != com.das.skillmatrix.entity.GeneralStatus.DELETED
     """)
     Page<DepartmentResponse> findDepartmentResponsesByCareerId(Long careerId, org.springframework.data.domain.Pageable pageable);
+    List<Department> findByCareer_CareerIdIn(List<Long> careerIds);
+    long countByDepartmentIdAndStatusIn(Long departmentId, List<GeneralStatus> statuses);
 }
