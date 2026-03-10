@@ -13,8 +13,6 @@ public class TeamRequest {
     @NotBlank(message = "Name is required")
     private String name;
     private String description;
-    @NotNull(message = "Manager ID is required")
-    private Long managerId;
     @NotNull(message = "Department ID is required")
     private Long departmentId;
 }

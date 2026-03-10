@@ -83,8 +83,8 @@ public class SkillControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.error.errorCode").value(400))
-                .andExpect(jsonPath("$.data.name").value("Name is required"))
-                .andExpect(jsonPath("$.data.description").value("Description is required"));
+                .andExpect(jsonPath("$.error.details.name").value("Name is required"))
+                .andExpect(jsonPath("$.error.details.description").value("Description is required"));
     }
 
     @Test

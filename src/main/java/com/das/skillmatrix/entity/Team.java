@@ -49,6 +49,8 @@ public class Team extends BaseEntity {
 
     private LocalDateTime deActiveAt;
 
+    private LocalDateTime createdAt;
+    
     @NotAudited
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "team_managers", joinColumns = @JoinColumn(name = "team_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
