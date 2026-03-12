@@ -61,7 +61,9 @@ public class User extends BaseEntity {
             CascadeType.MERGE }, orphanRemoval = true)
     private List<UserSkill> userSkills;
 
-    private String role; // ADMIN, MANAGER, EMPLOYEE
+    private String role; // Admin, Manager Career, Manager Department, Manager Team, Staff
+
+    private GeneralStatus status = GeneralStatus.ACTIVE;
 
     @JsonIgnore
     @NotAudited
