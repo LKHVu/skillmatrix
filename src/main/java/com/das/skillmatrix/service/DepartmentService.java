@@ -12,7 +12,6 @@ import com.das.skillmatrix.dto.request.DepartmentRequest;
 import com.das.skillmatrix.dto.response.DepartmentDetailResponse;
 import com.das.skillmatrix.dto.response.DepartmentResponse;
 import com.das.skillmatrix.dto.response.PageResponse;
-import com.das.skillmatrix.dto.response.TeamBrief;
 import com.das.skillmatrix.entity.Career;
 import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.entity.GeneralStatus;
@@ -155,21 +154,14 @@ public class DepartmentService {
     @Transactional(readOnly = true)
     public DepartmentDetailResponse detail(Long id) {
         Department department = getVisibleDepartmentOrThrow(id);
-        List<TeamBrief> teams = getTeamBriefs(id);
+        long teamCount = teamRepository.countByDepartment_DepartmentIdAndStatusIn(id, List.of(GeneralStatus.ACTIVE, GeneralStatus.DEACTIVE));
         return new DepartmentDetailResponse(
                 department.getDepartmentId(),
                 department.getName(),
                 department.getDescription(),
                 department.getCareer().getCareerId(),
                 department.getStatus(),
-                teams.size(),
-                teams);
-    }
-
-    private List<TeamBrief> getTeamBriefs(Long departmentId) {
-        return teamRepository.findByDepartment_DepartmentId(departmentId).stream()
-                .map(t -> new TeamBrief(t.getTeamId(), t.getName(), t.getStatus()))
-                .toList();
+                teamCount);
     }
 
     private Department getActiveDepartmentOrThrow(Long id) {

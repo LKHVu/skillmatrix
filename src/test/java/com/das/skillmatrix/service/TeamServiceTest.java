@@ -4,24 +4,29 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.das.skillmatrix.dto.request.TeamRequest;
+import com.das.skillmatrix.dto.request.criteria.TeamSearchCriteria;
 import com.das.skillmatrix.dto.response.PageResponse;
+import com.das.skillmatrix.dto.response.TeamDetailResponse;
 import com.das.skillmatrix.dto.response.TeamResponse;
 import com.das.skillmatrix.entity.Department;
+import com.das.skillmatrix.entity.GeneralStatus;
 import com.das.skillmatrix.entity.Team;
 import com.das.skillmatrix.entity.User;
 import com.das.skillmatrix.exception.ResourceNotFoundException;
@@ -29,204 +34,250 @@ import com.das.skillmatrix.repository.DepartmentRepository;
 import com.das.skillmatrix.repository.TeamMemberRepository;
 import com.das.skillmatrix.repository.TeamRepository;
 import com.das.skillmatrix.repository.UserRepository;
+import com.querydsl.core.types.Predicate;
 
 @ExtendWith(MockitoExtension.class)
 class TeamServiceTest {
 
-    @Mock
-    private TeamRepository teamRepository;
-
-    @Mock
-    private TeamMemberRepository teamMemberRepository;
-
-    @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private DepartmentRepository departmentRepository;
-
-    @Mock
-    private BusinessChangeLogService businessChangeLogService;
+    @Mock private TeamRepository teamRepository;
+    @Mock private TeamMemberRepository teamMemberRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private DepartmentRepository departmentRepository;
+    @Mock private PermissionService permissionService;
+    @Mock private BusinessChangeLogService businessChangeLogService;
 
     @InjectMocks
     private TeamService teamService;
 
-    private static User user(Long id, String email, String fullName) {
-        User u = new User();
-        u.setUserId(id);
-        u.setEmail(email);
-        u.setFullName(fullName);
-        return u;
+    private Department activeDepartment;
+    private Team activeTeam;
+
+    @BeforeEach
+    void setUp() {
+        activeDepartment = department(1L, "Dept One", GeneralStatus.ACTIVE);
+        activeTeam = team(1L, "Team Alpha", "desc", activeDepartment);
     }
 
-    private static Team team(Long teamId, String name, String description, User manager, Department department) {
-        Team t = new Team();
-        t.setTeamId(teamId);
-        t.setName(name);
-        t.setDescription(description);
-        t.setManagers(java.util.List.of(manager));
-        t.setDepartment(department);
-        return t;
-    }
-
-    private static Department department(Long departmentId, String description, String name) {
+    private static Department department(Long id, String name, GeneralStatus status) {
         Department d = new Department();
-        d.setDepartmentId(departmentId);
-        d.setDescription(description);
+        d.setDepartmentId(id);
         d.setName(name);
+        d.setStatus(status);
         return d;
     }
 
-    @Test
-    @DisplayName("createTeam() should create team and return TeamResponse")
-    void createTeam_shouldCreateAndReturnResponse() {
-        TeamRequest req = new TeamRequest("CNTT", "desc", 1L, 1L);
-        User manager = user(1L, "m1@example.com", "Manager One");
-        Department department = department(1L, "Department One", "Department One");
+    private static Team team(Long id, String name, String desc, Department dept) {
+        Team t = new Team();
+        t.setTeamId(id);
+        t.setName(name);
+        t.setDescription(desc);
+        t.setStatus(GeneralStatus.ACTIVE);
+        t.setCreatedAt(LocalDateTime.now());
+        t.setDepartment(dept);
+        return t;
+    }
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(manager));
-        when(departmentRepository.findById(1L)).thenReturn(Optional.of(department));
+    private static User user(Long id, String role) {
+        User u = new User();
+        u.setUserId(id);
+        u.setEmail("user" + id + "@example.com");
+        u.setFullName("User " + id);
+        u.setRole(role);
+        u.setManagedCareers(new ArrayList<>());
+        u.setManagedDepartments(new ArrayList<>());
+        u.setManagedTeams(new ArrayList<>());
+        return u;
+    }
+
+    @Test
+    @DisplayName("createTeam() should create and return TeamResponse")
+    void createTeam_success() {
+        when(departmentRepository.findById(1L)).thenReturn(Optional.of(activeDepartment));
+        when(teamRepository.existsByNameIgnoreCaseAndDepartment_DepartmentIdAndStatusIn(
+                eq("New Team"), eq(1L), anyList())).thenReturn(false);
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> {
             Team saved = inv.getArgument(0);
-            saved.setTeamId(1L);
+            saved.setTeamId(10L);
             return saved;
         });
 
-        TeamResponse res = teamService.createTeam(req);
+        TeamResponse res = teamService.createTeam(new TeamRequest("New Team", "desc", 1L));
 
-        assertEquals(1L, res.getTeamId());
-        assertEquals("CNTT", res.getName());
-        assertEquals("desc", res.getDescription());
-        assertNotNull(res.getManager());
-        assertEquals(1L, res.getManager().getUserId());
-        assertEquals("m1@example.com", res.getManager().getEmail());
-        assertEquals("Manager One", res.getManager().getFullName());
-        assertNotNull(res.getDepartment());
+        assertEquals(10L, res.getTeamId());
+        assertEquals("New Team", res.getName());
         assertEquals(1L, res.getDepartment().getDepartmentId());
-        assertEquals("Department One", res.getDepartment().getName());
-        assertEquals("Department One", res.getDepartment().getDescription());
-
-        verify(userRepository).findById(1L);
         verify(teamRepository).save(any(Team.class));
     }
 
     @Test
-    @DisplayName("createTeam() should throw when manager not found")
-    void createTeam_shouldThrow_whenManagerNotFound() {
-        TeamRequest req = new TeamRequest("CNTT", "desc", 1L, 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+    @DisplayName("createTeam() should throw when duplicate name in department")
+    void createTeam_duplicateName() {
+        when(departmentRepository.findById(1L)).thenReturn(Optional.of(activeDepartment));
+        when(teamRepository.existsByNameIgnoreCaseAndDepartment_DepartmentIdAndStatusIn(
+                eq("Existing"), eq(1L), anyList())).thenReturn(true);
 
-        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () -> teamService.createTeam(req));
-        assertEquals("MANAGER_NOT_FOUND", ex.getMessage());
-
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> teamService.createTeam(new TeamRequest("Existing", "desc", 1L)));
+        assertEquals("TEAM_NAME_EXISTS_IN_DEPARTMENT", ex.getMessage());
         verify(teamRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("updateTeam() should update team and return TeamResponse")
-    void updateTeam_shouldUpdateAndReturnResponse() {
-        Long teamId = 1L;
+    @DisplayName("updateTeam() should update without department change")
+    void updateTeam_sameDepartment() {
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+        when(teamRepository.existsByNameAndDepartmentIdExcluding(
+                eq("Updated"), eq(1L), eq(1L), anyList())).thenReturn(false);
 
-        User oldManager = user(1L, "old@example.com", "Old Manager");
-        Department oldDepartment = department(1L, "Old Department", "Old Department");
-        Team existing = team(teamId, "Old", "Old desc", oldManager, oldDepartment);
+        TeamResponse res = teamService.updateTeam(1L, new TeamRequest("Updated", "new desc", 1L));
 
-        TeamRequest req = new TeamRequest("New Name", "New desc", 2L, 2L);
-        User newManager = user(2L, "new@example.com", "New Manager");
-        Department newDepartment = department(2L, "New Department", "New Department");
-
-        when(teamRepository.findById(teamId)).thenReturn(Optional.of(existing));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(newManager));
-        when(departmentRepository.findById(2L)).thenReturn(Optional.of(newDepartment));
-
-        TeamResponse res = teamService.updateTeam(teamId, req);
-
-        assertEquals(teamId, res.getTeamId());
-        assertEquals("New Name", res.getName());
-        assertEquals("New desc", res.getDescription());
-        assertEquals(2L, res.getManager().getUserId());
-        assertEquals("new@example.com", res.getManager().getEmail());
-        assertEquals("New Manager", res.getManager().getFullName());
-
-        assertEquals("New Name", existing.getName());
-        assertEquals("New desc", existing.getDescription());
-        assertEquals(newManager, existing.getManagers().get(0));
-
-        verify(teamRepository, times(1)).findById(teamId);
-        verify(userRepository, times(1)).findById(2L);
-        verify(departmentRepository, times(1)).findById(2L);
-        verify(teamRepository, times(1)).save(existing);
+        assertEquals("Updated", res.getName());
+        assertEquals(1L, res.getDepartment().getDepartmentId());
+        verify(teamRepository).save(activeTeam);
+        verify(permissionService, never()).getCurrentUser();
     }
 
     @Test
-    @DisplayName("updateTeam() should throw when team not found")
-    void updateTeam_shouldThrow_whenTeamNotFound() {
-        when(teamRepository.findById(1L)).thenReturn(Optional.empty());
+    @DisplayName("updateTeam() should update with department change")
+    void updateTeam_withDepartmentChange() {
+        Department newDept = department(2L, "Dept Two", GeneralStatus.ACTIVE);
+        User admin = user(1L, "ADMIN");
 
-        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
-                () -> teamService.updateTeam(1L, new TeamRequest("CNTT", "desc", 1L, 1L)));
-        assertEquals("TEAM_NOT_FOUND", ex.getMessage());
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+        when(permissionService.getCurrentUser()).thenReturn(admin);
+        when(permissionService.isTeamManagerOnly(admin)).thenReturn(false);
+        when(departmentRepository.findById(2L)).thenReturn(Optional.of(newDept));
+        when(permissionService.canMoveTeamDepartment(1L, 2L)).thenReturn(true);
+        when(teamRepository.existsByNameAndDepartmentIdExcluding(
+                eq("Team Alpha"), eq(2L), eq(1L), anyList())).thenReturn(false);
 
-        verify(userRepository, never()).findById(any());
-        verify(teamRepository, never()).save(any());
+        TeamResponse res = teamService.updateTeam(1L, new TeamRequest("Team Alpha", "desc", 2L));
+
+        assertEquals(2L, res.getDepartment().getDepartmentId());
+        verify(teamRepository).save(activeTeam);
     }
 
     @Test
-    @DisplayName("getAllTeams() should map teams to TeamResponse list")
-    void getAllTeams_shouldReturnMappedList() {
+    @DisplayName("getAllTeams() should return all teams for admin")
+    void getAllTeams_admin() {
+        User admin = user(1L, "ADMIN");
         Pageable pageable = PageRequest.of(0, 10);
 
-        Team t1 = team(1L, "T1", "D1", user(1L, "m1@example.com", "M1"), department(1L, "D1", "D1"));
-        Team t2 = team(2L, "T2", "D2", user(2L, "m2@example.com", "M2"), department(2L, "D2", "D2"));
+        when(permissionService.getCurrentUser()).thenReturn(admin);
+        when(permissionService.isAdmin(admin)).thenReturn(true);
+        when(teamRepository.findAll(any(Predicate.class), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(activeTeam), pageable, 1));
 
-        Page<Team> page = new PageImpl<>(List.of(t1, t2), pageable, 2);
+        PageResponse<TeamResponse> res = teamService.getAllTeams(new TeamSearchCriteria(), pageable);
 
-        when(teamRepository.findAll(pageable)).thenReturn(page);
-
-        PageResponse<TeamResponse> res = teamService.getAllTeams(pageable);
-
-        assertNotNull(res);
-        assertEquals(2, res.getItems().size());
-
-        assertEquals(1L, res.getItems().get(0).getTeamId());
-        assertEquals("T1", res.getItems().get(0).getName());
-        assertEquals("D1", res.getItems().get(0).getDescription());
-        assertEquals(1L, res.getItems().get(0).getManager().getUserId());
-
-        assertEquals(2L, res.getItems().get(1).getTeamId());
-        assertEquals("T2", res.getItems().get(1).getName());
-        assertEquals("D2", res.getItems().get(1).getDescription());
-        assertEquals(2L, res.getItems().get(1).getManager().getUserId());
-
-        assertEquals(2L, res.getTotalElements());
-        assertEquals(1, res.getTotalPages());
-        assertEquals(0, res.getPage());
-        assertEquals(10, res.getSize());
+        assertEquals(1, res.getItems().size());
+        assertEquals("Team Alpha", res.getItems().get(0).getName());
     }
 
     @Test
-    @DisplayName("getTeamById() should return TeamResponse when found")
-    void getTeamById_shouldReturnResponse() {
-        Team t = team(1L, "T1", "D1", user(1L, "m1@example.com", "M1"), department(1L, "D1", "D1"));
-        when(teamRepository.findById(1L)).thenReturn(Optional.of(t));
+    @DisplayName("getAllTeams() should return empty when user has no managed scope")
+    void getAllTeams_emptyScope() {
+        User employee = user(3L, "EMPLOYEE");
+        Pageable pageable = PageRequest.of(0, 10);
 
-        TeamResponse res = teamService.getTeamById(1L);
+        when(permissionService.getCurrentUser()).thenReturn(employee);
+        when(permissionService.isAdmin(employee)).thenReturn(false);
+
+        PageResponse<TeamResponse> res = teamService.getAllTeams(new TeamSearchCriteria(), pageable);
+
+        assertTrue(res.getItems().isEmpty());
+        assertEquals(0, res.getTotalElements());
+        verify(teamRepository, never()).findAll(any(Predicate.class), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("getTeamsByDepartment() should return teams")
+    void getTeamsByDepartment_success() {
+        Pageable pageable = PageRequest.of(0, 10);
+        TeamSearchCriteria criteria = new TeamSearchCriteria();
+        criteria.setDepartmentId(1L);
+
+        when(departmentRepository.findById(1L)).thenReturn(Optional.of(activeDepartment));
+        when(teamRepository.findAll(any(Predicate.class), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(activeTeam), pageable, 1));
+
+        PageResponse<TeamResponse> res = teamService.getTeamsByDepartment(criteria, pageable);
+
+        assertEquals(1, res.getItems().size());
+    }
+
+    @Test
+    @DisplayName("getTeamById() should return detail when found")
+    void getTeamById_success() {
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+        when(teamMemberRepository.countByTeam_TeamId(1L)).thenReturn(5L);
+
+        TeamDetailResponse res = teamService.getTeamById(1L);
 
         assertEquals(1L, res.getTeamId());
-        assertEquals("T1", res.getName());
-        assertEquals("D1", res.getDescription());
-        assertEquals(1L, res.getManager().getUserId());
+        assertEquals("Team Alpha", res.getName());
+        assertEquals(5L, res.getMemberCount());
+        assertEquals(1L, res.getDepartment().getDepartmentId());
     }
 
     @Test
-    @DisplayName("deleteTeam() should delete members then delete team")
-    void deleteTeam_shouldDeleteMembersThenTeam() {
-        Team t = team(1L, "T1", "D1", user(1L, "m1@example.com", "M1"), department(1L, "D1", "D1"));
-        when(teamRepository.findById(1L)).thenReturn(Optional.of(t));
+    @DisplayName("getTeamById() should throw when not found")
+    void getTeamById_notFound() {
+        when(teamRepository.findById(99L)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                () -> teamService.getTeamById(99L));
+        assertEquals("TEAM_NOT_FOUND", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("deleteTeam() should deactivate when has members and log status change")
+    void deleteTeam_deactivate() {
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+        when(teamMemberRepository.existsByTeam_TeamId(1L)).thenReturn(true);
 
         teamService.deleteTeam(1L);
+        assertEquals(GeneralStatus.DEACTIVE, activeTeam.getStatus());
+        assertNotNull(activeTeam.getDeActiveAt());
+        verify(teamRepository).save(activeTeam);
+        verify(businessChangeLogService).log(
+                eq("CHANGE_TEAM_STATUS"), eq("TEAM"), eq(1L),
+                eq("status"), eq("ACTIVE"), eq("DEACTIVE"));
+    }
 
-        verify(teamMemberRepository).deleteAllByTeam(t);
-        verify(teamRepository).delete(t);
+    @Test
+    @DisplayName("deleteTeam() should soft-delete when no members and log status change")
+    void deleteTeam_softDelete() {
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+        when(teamMemberRepository.existsByTeam_TeamId(1L)).thenReturn(false);
+
+        teamService.deleteTeam(1L);
+        assertEquals(GeneralStatus.DELETED, activeTeam.getStatus());
+        assertNotNull(activeTeam.getDeletedAt());
+        verify(teamRepository).save(activeTeam);
+        verify(businessChangeLogService).log(
+                eq("CHANGE_TEAM_STATUS"), eq("TEAM"), eq(1L),
+                eq("status"), eq("ACTIVE"), eq("DELETED"));
+    }
+
+    @Test
+    @DisplayName("assignManagers() should assign and log reassignment")
+    void assignManagers_success() {
+        User oldMgr = user(5L, "MANAGER_TEAM");
+        activeTeam.setManagers(new ArrayList<>(List.of(oldMgr)));
+
+        User mgr1 = user(10L, "MANAGER_TEAM");
+        User mgr2 = user(11L, "MANAGER_TEAM");
+
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+        when(userRepository.findAllById(List.of(10L, 11L))).thenReturn(List.of(mgr1, mgr2));
+
+        teamService.assignManagers(1L, List.of(10L, 11L));
+
+        assertEquals(2, activeTeam.getManagers().size());
+        verify(teamRepository).save(activeTeam);
+        verify(businessChangeLogService).log(
+                eq("REASSIGN_TEAM_MANAGERS"), eq("TEAM"), eq(1L),
+                eq("managerIds"), eq("[5]"), eq("[10, 11]"));
     }
 }

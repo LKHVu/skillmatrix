@@ -1,5 +1,6 @@
 package com.das.skillmatrix.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,9 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.das.skillmatrix.annotation.LogActivity;
 import com.das.skillmatrix.dto.request.TeamRequest;
+import com.das.skillmatrix.dto.request.criteria.TeamSearchCriteria;
 import com.das.skillmatrix.dto.response.PageResponse;
+import com.das.skillmatrix.dto.response.TeamDetailResponse;
 import com.das.skillmatrix.dto.response.TeamResponse;
+import com.das.skillmatrix.entity.Career;
 import com.das.skillmatrix.entity.Department;
+import com.das.skillmatrix.entity.GeneralStatus;
 import com.das.skillmatrix.entity.Team;
 import com.das.skillmatrix.entity.User;
 import com.das.skillmatrix.exception.ResourceNotFoundException;
@@ -20,117 +25,353 @@ import com.das.skillmatrix.repository.DepartmentRepository;
 import com.das.skillmatrix.repository.TeamMemberRepository;
 import com.das.skillmatrix.repository.TeamRepository;
 import com.das.skillmatrix.repository.UserRepository;
+import com.das.skillmatrix.service.helper.TeamSearchHelper;
+import com.querydsl.core.BooleanBuilder;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
+@SuppressWarnings("null")
 public class TeamService {
-        private final TeamRepository teamRepository;
-        private final TeamMemberRepository teamMemberRepository;
-        private final UserRepository userRepository;
-        private final DepartmentRepository departmentRepository;
-        private final BusinessChangeLogService businessChangeLogService;
 
-        public TeamService(TeamRepository teamRepository, UserRepository userRepository,
-                        TeamMemberRepository teamMemberRepository, DepartmentRepository departmentRepository,
-                        BusinessChangeLogService businessChangeLogService) {
-                this.teamRepository = teamRepository;
-                this.teamMemberRepository = teamMemberRepository;
-                this.userRepository = userRepository;
-                this.departmentRepository = departmentRepository;
-                this.businessChangeLogService = businessChangeLogService;
+    private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final UserRepository userRepository;
+    private final DepartmentRepository departmentRepository;
+    private final PermissionService permissionService;
+    private final BusinessChangeLogService businessChangeLogService;
+
+    private static TeamResponse toTeamResponse(Team team, Department department) {
+
+        return new TeamResponse(
+                team.getTeamId(),
+                team.getName(),
+                team.getDescription(),
+                team.getStatus(),
+                team.getCreatedAt(),
+                new TeamResponse.Department(
+                        department.getDepartmentId(),
+                        department.getName()));
+    }
+
+    private List<Long> resolveDepartmentIds(User currentUser) {
+
+        if (!currentUser.getManagedCareers().isEmpty()) {
+
+            List<Long> careerIds = currentUser.getManagedCareers()
+                    .stream()
+                    .map(Career::getCareerId)
+                    .toList();
+
+            return departmentRepository.findByCareer_CareerIdIn(careerIds)
+                    .stream()
+                    .map(Department::getDepartmentId)
+                    .toList();
+
+        } else if (!currentUser.getManagedDepartments().isEmpty()) {
+
+            List<Long> careerIds = currentUser.getManagedDepartments()
+                    .stream()
+                    .map(dept -> dept.getCareer().getCareerId())
+                    .distinct()
+                    .toList();
+
+            return departmentRepository.findByCareer_CareerIdIn(careerIds)
+                    .stream()
+                    .map(Department::getDepartmentId)
+                    .toList();
+
+        } else if (!currentUser.getManagedTeams().isEmpty()) {
+
+            return currentUser.getManagedTeams()
+                    .stream()
+                    .map(team -> team.getDepartment().getDepartmentId())
+                    .distinct()
+                    .toList();
         }
 
-        // Convert Team to TeamResponse
-        private TeamResponse toTeamResponse(Team team, User manager, Department department) {
-                return new TeamResponse(
-                                team.getTeamId(),
-                                team.getName(),
-                                team.getDescription(),
-                                manager != null ? new TeamResponse.Manager(manager.getUserId(), manager.getEmail(),
-                                                manager.getFullName()) : null,
-                                new TeamResponse.Department(department.getDepartmentId(), department.getName(),
-                                                department.getDescription()));
+        return List.of();
+    }
+
+    @LogActivity(action = "CREATE_TEAM", entityType = "TEAM")
+    public TeamResponse createTeam(TeamRequest teamRequest) {
+
+        String name = teamRequest.getName().trim();
+
+        if (name.isEmpty()) {
+            throw new IllegalArgumentException("TEAM_NAME_REQUIRED");
         }
 
-        @LogActivity(action = "CREATE_TEAM", entityType = "TEAM")
-        public TeamResponse createTeam(TeamRequest teamRequest) {
-                User manager = userRepository.findById(teamRequest.getManagerId())
-                                .orElseThrow(() -> new ResourceNotFoundException("MANAGER_NOT_FOUND"));
-                Department department = departmentRepository.findById(teamRequest.getDepartmentId())
-                                .orElseThrow(() -> new ResourceNotFoundException("DEPARTMENT_NOT_FOUND"));
-                Team team = new Team();
-                team.setName(teamRequest.getName());
-                team.setDescription(teamRequest.getDescription());
-                team.setManagers(new ArrayList<>(List.of(manager))); // Set as single item list
-                team.setDepartment(department);
-                teamRepository.save(team);
+        Department department = departmentRepository
+                .findById(teamRequest.getDepartmentId())
+                .orElseThrow(() -> new ResourceNotFoundException("DEPARTMENT_NOT_FOUND"));
 
-                return toTeamResponse(team, manager, department);
+        if (department.getStatus() != GeneralStatus.ACTIVE) {
+            throw new IllegalArgumentException("DEPARTMENT_NOT_ACTIVE");
         }
 
-        @LogActivity(action = "UPDATE_TEAM", entityType = "TEAM")
-        public TeamResponse updateTeam(Long teamId, TeamRequest teamRequest) {
-                Team team = teamRepository.findById(teamId)
-                                .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
-                User manager = userRepository.findById(teamRequest.getManagerId())
-                                .orElseThrow(() -> new ResourceNotFoundException("MANAGER_NOT_FOUND"));
-                Department department = departmentRepository.findById(teamRequest.getDepartmentId())
-                                .orElseThrow(() -> new ResourceNotFoundException("DEPARTMENT_NOT_FOUND"));
-                team.setName(teamRequest.getName());
-                team.setDescription(teamRequest.getDescription());
-                team.setManagers(new ArrayList<>(List.of(manager))); // update manager list
-                team.setDepartment(department);
-                teamRepository.save(team);
+        List<GeneralStatus> activeStatuses = List.of(
+                GeneralStatus.ACTIVE,
+                GeneralStatus.DEACTIVE);
 
-                return toTeamResponse(team, manager, department);
+        if (teamRepository.existsByNameIgnoreCaseAndDepartment_DepartmentIdAndStatusIn(
+                name,
+                department.getDepartmentId(),
+                activeStatuses)) {
+
+            throw new IllegalArgumentException("TEAM_NAME_EXISTS_IN_DEPARTMENT");
         }
 
-        public PageResponse<TeamResponse> getAllTeams(Pageable pageable) {
-                Page<Team> teams = teamRepository.findAll(pageable);
-                // Convert Team to TeamResponse
-                List<TeamResponse> teamResponses = teams.stream()
-                                .map(team -> {
-                                        User manager = team.getManagers().isEmpty() ? null : team.getManagers().get(0);
-                                        return toTeamResponse(team, manager, team.getDepartment());
-                                })
-                                .toList();
+        Team team = new Team();
+
+        team.setName(name);
+        team.setDescription(teamRequest.getDescription());
+        team.setCreatedAt(LocalDateTime.now());
+        team.setDepartment(department);
+        team.setManagers(new ArrayList<>());
+
+        teamRepository.save(team);
+
+        return toTeamResponse(team, department);
+    }
+
+    @LogActivity(action = "UPDATE_TEAM", entityType = "TEAM")
+    public TeamResponse updateTeam(Long teamId, TeamRequest teamRequest) {
+
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
+
+        String newName = teamRequest.getName().trim();
+
+        if (newName.isEmpty()) {
+            throw new IllegalArgumentException("TEAM_NAME_REQUIRED");
+        }
+
+        if (team.getStatus() != GeneralStatus.ACTIVE) {
+            throw new IllegalArgumentException("TEAM_NOT_ACTIVE");
+        }
+
+        Department targetDepartment = team.getDepartment();
+
+        boolean departmentChanged =
+                !team.getDepartment().getDepartmentId()
+                        .equals(teamRequest.getDepartmentId());
+
+        if (departmentChanged) {
+
+            User currentUser = permissionService.getCurrentUser();
+
+            if (permissionService.isTeamManagerOnly(currentUser)) {
+                throw new IllegalArgumentException("MANAGER_TEAM_CANNOT_CHANGE_DEPARTMENT");
+            }
+
+            targetDepartment = departmentRepository
+                    .findById(teamRequest.getDepartmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("DEPARTMENT_NOT_FOUND"));
+
+            if (targetDepartment.getStatus() != GeneralStatus.ACTIVE) {
+                throw new IllegalArgumentException("TARGET_DEPARTMENT_NOT_ACTIVE");
+            }
+
+            if (!permissionService.canMoveTeamDepartment(
+                    team.getDepartment().getDepartmentId(),
+                    targetDepartment.getDepartmentId())) {
+
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "ACCESS_DENIED_TO_MOVE_DEPARTMENT");
+            }
+        }
+
+        List<GeneralStatus> activeStatuses = List.of(
+                GeneralStatus.ACTIVE,
+                GeneralStatus.DEACTIVE);
+
+        if (teamRepository.existsByNameAndDepartmentIdExcluding(
+                newName,
+                targetDepartment.getDepartmentId(),
+                teamId,
+                activeStatuses)) {
+
+            throw new IllegalArgumentException("TEAM_NAME_EXISTS_IN_DEPARTMENT");
+        }
+
+        team.setName(newName);
+        team.setDescription(teamRequest.getDescription());
+
+        if (departmentChanged) {
+            team.setDepartment(targetDepartment);
+        }
+
+        teamRepository.save(team);
+
+        return toTeamResponse(team, targetDepartment);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TeamResponse> getAllTeams(
+            TeamSearchCriteria criteria,
+            Pageable pageable) {
+
+        User currentUser = permissionService.getCurrentUser();
+
+        List<Long> departmentIds = null;
+
+        if (!permissionService.isAdmin(currentUser)) {
+
+            departmentIds = resolveDepartmentIds(currentUser);
+
+            if (departmentIds.isEmpty()) {
+
                 return new PageResponse<>(
-                                teamResponses,
-                                teams.getNumber(),
-                                teams.getSize(),
-                                teams.getTotalElements(),
-                                teams.getTotalPages(),
-                                teams.hasNext(),
-                                teams.hasPrevious());
+                        List.of(),
+                        0,
+                        pageable.getPageSize(),
+                        0,
+                        0,
+                        false,
+                        false);
+            }
         }
 
-        public TeamResponse getTeamById(Long teamId) {
-                Team team = teamRepository.findById(teamId)
-                                .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
-                User manager = team.getManagers().isEmpty() ? null : team.getManagers().get(0);
-                return toTeamResponse(team, manager, team.getDepartment());
+        BooleanBuilder predicate =
+                TeamSearchHelper.buildGlobalSearch(departmentIds, criteria);
+
+        Page<Team> teams = teamRepository.findAll((com.querydsl.core.types.Predicate) predicate, pageable);
+
+        List<TeamResponse> responses = teams.stream()
+                .map(team -> toTeamResponse(team, team.getDepartment()))
+                .toList();
+
+        return new PageResponse<>(
+                responses,
+                teams.getNumber(),
+                teams.getSize(),
+                teams.getTotalElements(),
+                teams.getTotalPages(),
+                teams.hasNext(),
+                teams.hasPrevious());
+    }
+
+    @Transactional(readOnly = true)
+    public TeamDetailResponse getTeamById(Long teamId) {
+
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
+
+        if (team.getStatus() == GeneralStatus.DELETED) {
+            throw new ResourceNotFoundException("TEAM_NOT_FOUND");
         }
 
-        @LogActivity(action = "DELETE_TEAM", entityType = "TEAM")
-        public void deleteTeam(Long teamId) {
-                Team team = teamRepository.findById(teamId)
-                                .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
-                teamMemberRepository.deleteAllByTeam(team);
-                teamRepository.delete(team);
+        long memberCount = teamMemberRepository.countByTeam_TeamId(teamId);
+
+        return new TeamDetailResponse(
+                team.getTeamId(),
+                team.getName(),
+                team.getDescription(),
+                team.getStatus(),
+                team.getCreatedAt(),
+                memberCount,
+                new TeamDetailResponse.Department(
+                        team.getDepartment().getDepartmentId(),
+                        team.getDepartment().getName()));
+    }
+
+    @LogActivity(action = "DELETE_TEAM", entityType = "TEAM")
+    public void deleteTeam(Long teamId) {
+
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("TEAM_NOT_FOUND"));
+
+        if (team.getStatus() != GeneralStatus.ACTIVE) {
+            throw new IllegalArgumentException("TEAM_NOT_ACTIVE");
         }
 
-        @LogActivity(action = "ASSIGN_TEAM_MANAGERS", entityType = "TEAM")
-        public void assignManagers(Long teamId, List<Long> managerIds) {
-                Team team = teamRepository.findById(teamId)
-                                .orElseThrow(() -> new IllegalArgumentException("TEAM_NOT_FOUND"));
-                String oldManagerIds = team.getManagers().stream()
-                                .map(u -> u.getUserId().toString()).toList().toString();
+        String oldStatus = team.getStatus().name();
 
-                List<User> managers = userRepository.findAllById(managerIds);
-                team.setManagers(managers);
-                teamRepository.save(team);
-                businessChangeLogService.log(
-                                "REASSIGN_TEAM_MANAGERS", "TEAM", teamId,
-                                "managerIds", oldManagerIds, managerIds.toString());
+        boolean hasMembers =
+                teamMemberRepository.existsByTeam_TeamId(teamId);
+
+        if (hasMembers) {
+
+            team.setStatus(GeneralStatus.DEACTIVE);
+            team.setDeActiveAt(LocalDateTime.now());
+
+            teamRepository.save(team);
+
+            businessChangeLogService.log(
+                    "CHANGE_TEAM_STATUS",
+                    "TEAM",
+                    teamId,
+                    "status",
+                    oldStatus,
+                    team.getStatus().name());
+
+        } else {
+
+            team.setStatus(GeneralStatus.DELETED);
+            team.setDeletedAt(LocalDateTime.now());
+
+            teamRepository.save(team);
+
+            businessChangeLogService.log(
+                    "CHANGE_TEAM_STATUS",
+                    "TEAM",
+                    teamId,
+                    "status",
+                    oldStatus,
+                    team.getStatus().name());
+
         }
+    }
+
+    @LogActivity(action = "ASSIGN_TEAM_MANAGERS", entityType = "TEAM")
+    public void assignManagers(Long teamId, List<Long> managerIds) {
+
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("TEAM_NOT_FOUND"));
+
+        String oldManagerIds = team.getManagers()
+                .stream()
+                .map(u -> u.getUserId().toString())
+                .toList()
+                .toString();
+
+        List<User> managers = userRepository.findAllById(managerIds);
+
+        team.setManagers(managers);
+
+        teamRepository.save(team);
+
+        businessChangeLogService.log(
+                "REASSIGN_TEAM_MANAGERS",
+                "TEAM",
+                teamId,
+                "managerIds",
+                oldManagerIds,
+                managerIds.toString());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<TeamResponse> getTeamsByDepartment(TeamSearchCriteria criteria, Pageable pageable) {
+        departmentRepository.findById(criteria.getDepartmentId())
+                .orElseThrow(() -> new ResourceNotFoundException("DEPARTMENT_NOT_FOUND"));
+
+        BooleanBuilder predicate = TeamSearchHelper.buildDepartmentSearch(criteria);
+        Page<Team> teams = teamRepository.findAll((com.querydsl.core.types.Predicate) predicate, pageable);
+
+        List<TeamResponse> responses = teams.stream()
+                .map(team -> toTeamResponse(team, team.getDepartment()))
+                .toList();
+
+        return new PageResponse<>(
+                responses,
+                teams.getNumber(),
+                teams.getSize(),
+                teams.getTotalElements(),
+                teams.getTotalPages(),
+                teams.hasNext(),
+                teams.hasPrevious());
+    }
 }

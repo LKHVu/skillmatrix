@@ -19,6 +19,7 @@ import com.das.skillmatrix.entity.GeneralStatus;
 public interface DepartmentRepository extends JpaRepository<Department, Long> {
     long countByCareer_CareerId(Long careerId);
     List<Department> findByCareer_CareerId(Long careerId);
+    List<Department> findByCareer_CareerIdIn(List<Long> careerIds);
     boolean existsByCareer_CareerIdAndManagers_UserId(Long careerId, Long userId);
     boolean existsByNameIgnoreCaseAndCareer_CareerId(String name, Long careerId);
     boolean existsByDepartmentIdAndManagers_UserId(Long departmentId, Long userId);

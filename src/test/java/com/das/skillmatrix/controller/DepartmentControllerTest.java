@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -125,8 +126,7 @@ class DepartmentControllerTest {
     @DisplayName("GET /api/departments/{id} should return 200 and detail")
     void detail_shouldReturnDetail() throws Exception {
         DepartmentDetailResponse resp = new DepartmentDetailResponse(
-                1L, "DEV", "Desc", 1L, GeneralStatus.ACTIVE, 1,
-                List.of(new TeamBrief(100L, "Team1", GeneralStatus.ACTIVE)));
+                1L, "DEV", "Desc", 1L, GeneralStatus.ACTIVE, 1L);
 
         when(permissionService.canViewDepartmentDetail(1L)).thenReturn(true);
         when(departmentService.detail(1L)).thenReturn(resp);
@@ -135,7 +135,7 @@ class DepartmentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.departmentId").value(1))
-                .andExpect(jsonPath("$.data.teams[0].name").value("Team1"));
+                .andExpect(jsonPath("$.data.totalTeams").value(1));
     }
 
     @Test

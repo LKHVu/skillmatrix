@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.AfterEach;
@@ -46,6 +47,7 @@ class PermissionServiceTest {
 
     @BeforeEach
     void setUp() {
+
         adminUser = new User();
         adminUser.setUserId(1L);
         adminUser.setEmail("admin@example.com");
@@ -64,25 +66,38 @@ class PermissionServiceTest {
 
     private void mockSecurityContext(String email) {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(email, "password", java.util.Collections.emptyList()));
+                new UsernamePasswordAuthenticationToken(
+                        email,
+                        "password",
+                        java.util.Collections.emptyList()));
     }
 
     @Test
     @DisplayName("checkCareerAccess() should return true for ADMIN")
     void checkCareerAccess_ShouldReturnTrueForAdmin() {
+
         mockSecurityContext(adminUser.getEmail());
-        when(userRepository.findUserByEmail(adminUser.getEmail())).thenReturn(adminUser);
+
+        when(userRepository.findUserByEmail(adminUser.getEmail()))
+                .thenReturn(adminUser);
 
         assertTrue(permissionService.checkCareerAccess(1L));
-        verify(careerRepository, never()).existsByCareerIdAndManagers_UserId(any(), any());
+
+        verify(careerRepository, never())
+                .existsByCareerIdAndManagers_UserId(any(), any());
     }
 
     @Test
     @DisplayName("checkCareerAccess() should return true when user is career manager")
     void checkCareerAccess_ShouldReturnTrueWhenCareerManager() {
+
         mockSecurityContext(normalUser.getEmail());
-        when(userRepository.findUserByEmail(normalUser.getEmail())).thenReturn(normalUser);
-        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L)).thenReturn(true);
+
+        when(userRepository.findUserByEmail(normalUser.getEmail()))
+                .thenReturn(normalUser);
+
+        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L))
+                .thenReturn(true);
 
         assertTrue(permissionService.checkCareerAccess(10L));
     }
@@ -90,11 +105,20 @@ class PermissionServiceTest {
     @Test
     @DisplayName("checkDepartmentAccess() should return true when user is department manager")
     void checkDepartmentAccess_ShouldReturnTrueWhenDepartmentManager() {
+
         mockSecurityContext(normalUser.getEmail());
-        when(userRepository.findUserByEmail(normalUser.getEmail())).thenReturn(normalUser);
-        when(departmentRepository.findCareerIdByDepartmentId(20L)).thenReturn(Optional.of(10L));
-        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L)).thenReturn(false);
-        when(departmentRepository.existsByDepartmentIdAndManagers_UserId(20L, 2L)).thenReturn(true);
+
+        when(userRepository.findUserByEmail(normalUser.getEmail()))
+                .thenReturn(normalUser);
+
+        when(departmentRepository.findCareerIdByDepartmentId(20L))
+                .thenReturn(Optional.of(10L));
+
+        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L))
+                .thenReturn(false);
+
+        when(departmentRepository.existsByDepartmentIdAndManagers_UserId(20L, 2L))
+                .thenReturn(true);
 
         assertTrue(permissionService.checkDepartmentAccess(20L));
     }
@@ -102,26 +126,77 @@ class PermissionServiceTest {
     @Test
     @DisplayName("checkTeamAccess() should return true when user is career manager")
     void checkTeamAccess_ShouldReturnTrueWhenCareerManager() {
+
         mockSecurityContext(normalUser.getEmail());
-        when(userRepository.findUserByEmail(normalUser.getEmail())).thenReturn(normalUser);
-        when(teamRepository.findCareerIdByTeamId(30L)).thenReturn(Optional.of(10L));
-        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L)).thenReturn(true);
+
+        when(userRepository.findUserByEmail(normalUser.getEmail()))
+                .thenReturn(normalUser);
+
+        when(teamRepository.findCareerIdByTeamId(30L))
+                .thenReturn(Optional.of(10L));
+
+        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L))
+                .thenReturn(true);
 
         assertTrue(permissionService.checkTeamAccess(30L));
-        verify(departmentRepository, never()).existsByDepartmentIdAndManagers_UserId(any(), any());
-        verify(teamRepository, never()).existsByTeamIdAndManagers_UserId(any(), any());
+
+        verify(departmentRepository, never())
+                .existsByDepartmentIdAndManagers_UserId(any(), any());
+
+        verify(teamRepository, never())
+                .existsByTeamIdAndManagers_UserId(any(), any());
+    }
+
+    @Test
+    @DisplayName("checkTeamAccess() should return true when user is department manager")
+    void checkTeamAccess_ShouldReturnTrueWhenDepartmentManager() {
+
+        mockSecurityContext(normalUser.getEmail());
+
+        when(userRepository.findUserByEmail(normalUser.getEmail()))
+                .thenReturn(normalUser);
+
+        when(teamRepository.findCareerIdByTeamId(30L))
+                .thenReturn(Optional.of(10L));
+
+        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L))
+                .thenReturn(false);
+
+        when(teamRepository.findDepartmentIdByTeamId(30L))
+                .thenReturn(Optional.of(20L));
+
+        when(departmentRepository.existsByDepartmentIdAndManagers_UserId(20L, 2L))
+                .thenReturn(true);
+
+        assertTrue(permissionService.checkTeamAccess(30L));
+
+        verify(teamRepository, never())
+                .existsByTeamIdAndManagers_UserId(any(), any());
     }
 
     @Test
     @DisplayName("checkTeamAccess() should return true when user is team manager")
     void checkTeamAccess_ShouldReturnTrueWhenTeamManager() {
+
         mockSecurityContext(normalUser.getEmail());
-        when(userRepository.findUserByEmail(normalUser.getEmail())).thenReturn(normalUser);
-        when(teamRepository.findCareerIdByTeamId(30L)).thenReturn(Optional.of(10L));
-        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L)).thenReturn(false);
-        when(teamRepository.findDepartmentIdByTeamId(30L)).thenReturn(Optional.of(20L));
-        when(departmentRepository.existsByDepartmentIdAndManagers_UserId(20L, 2L)).thenReturn(false);
-        when(teamRepository.existsByTeamIdAndManagers_UserId(30L, 2L)).thenReturn(true);
+
+        when(userRepository.findUserByEmail(normalUser.getEmail()))
+                .thenReturn(normalUser);
+
+        when(teamRepository.findCareerIdByTeamId(30L))
+                .thenReturn(Optional.of(10L));
+
+        when(careerRepository.existsByCareerIdAndManagers_UserId(10L, 2L))
+                .thenReturn(false);
+
+        when(teamRepository.findDepartmentIdByTeamId(30L))
+                .thenReturn(Optional.of(20L));
+
+        when(departmentRepository.existsByDepartmentIdAndManagers_UserId(20L, 2L))
+                .thenReturn(false);
+
+        when(teamRepository.existsByTeamIdAndManagers_UserId(30L, 2L))
+                .thenReturn(true);
 
         assertTrue(permissionService.checkTeamAccess(30L));
     }
