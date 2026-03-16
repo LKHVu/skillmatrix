@@ -74,9 +74,9 @@ public class TeamController {
 
     @PreAuthorize("@permissionService.canManageTeam(#teamId)")
     @DeleteMapping("/{teamId}")
-    public ResponseEntity<ApiResponse<String>> deleteTeam(@PathVariable Long teamId) {
-        String message = teamService.deleteTeam(teamId);
-        return ResponseEntity.ok(new ApiResponse<>(message, true, null));
+    public ResponseEntity<ApiResponse<Void>> deleteTeam(@PathVariable Long teamId) {
+        teamService.deleteTeam(teamId);
+        return ResponseEntity.ok(new ApiResponse<>(null, true, null));
     }
 
     @PreAuthorize("@permissionService.canManageTeam(#teamId)")

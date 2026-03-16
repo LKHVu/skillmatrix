@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ModelAttribute;
 
+import com.das.skillmatrix.dto.request.CareerFilterRequest;
 import com.das.skillmatrix.dto.request.CareerRequest;
 import com.das.skillmatrix.dto.response.ApiResponse;
 import com.das.skillmatrix.dto.response.CareerDetailResponse;
@@ -57,8 +59,9 @@ public class CareerController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<CareerResponse>>> list(
-            @PageableDefault(size = 10, sort = "careerId", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(new ApiResponse<>(careerService.list(pageable), true, null));
+            @ModelAttribute CareerFilterRequest filter,
+            @PageableDefault(size = 10, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(new ApiResponse<>(careerService.list(filter, pageable), true, null));
     }
 
     @PreAuthorize("@permissionService.checkCareerAccess(#id)")
@@ -68,10 +71,16 @@ public class CareerController {
     }
 
     @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/{id}/managers")
-    public ResponseEntity<ApiResponse<Void>> assignManagers(@PathVariable Long id,
-            @RequestBody java.util.List<Long> managerIds) {
-        careerService.assignManagers(id, managerIds);
+    @PostMapping("/{id}/managers/{userId}")
+    public ResponseEntity<ApiResponse<Void>> addManager(@PathVariable Long id, @PathVariable Long userId) {
+        careerService.addManager(id, userId);
+        return ResponseEntity.ok(new ApiResponse<>(null, true, null));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}/managers/{userId}")
+    public ResponseEntity<ApiResponse<Void>> removeManager(@PathVariable Long id, @PathVariable Long userId) {
+        careerService.removeManager(id, userId);
         return ResponseEntity.ok(new ApiResponse<>(null, true, null));
     }
 }

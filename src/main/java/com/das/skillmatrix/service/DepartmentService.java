@@ -154,7 +154,7 @@ public class DepartmentService {
     @Transactional(readOnly = true)
     public DepartmentDetailResponse detail(Long id) {
         Department department = getVisibleDepartmentOrThrow(id);
-        long teamCount = departmentRepository.countByDepartmentIdAndStatusIn(id, List.of(GeneralStatus.ACTIVE, GeneralStatus.DEACTIVE));
+        long teamCount = teamRepository.countByDepartment_DepartmentIdAndStatusIn(id, List.of(GeneralStatus.ACTIVE, GeneralStatus.DEACTIVE));
         return new DepartmentDetailResponse(
                 department.getDepartmentId(),
                 department.getName(),

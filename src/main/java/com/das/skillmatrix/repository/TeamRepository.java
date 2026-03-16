@@ -21,6 +21,7 @@ public interface TeamRepository extends JpaRepository<Team, Long>, QuerydslPredi
     @EntityGraph(attributePaths = { "managers", "department" })
     Page<Team> findAll(Pageable pageable);
     long countByDepartment_DepartmentId(Long departmentId);
+    long countByDepartment_DepartmentIdAndStatusIn(Long departmentId, List<GeneralStatus> statuses);
     List<Team> findByDepartment_DepartmentId(Long departmentId);
     boolean existsByTeamIdAndManagers_UserId(Long teamId, Long userId);
     @Query("SELECT t.department.departmentId FROM Team t WHERE t.teamId = :teamId")

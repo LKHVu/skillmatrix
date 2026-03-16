@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -15,7 +16,7 @@ import com.das.skillmatrix.entity.Career;
 import com.das.skillmatrix.entity.GeneralStatus;
 
 @Repository
-public interface CareerRepository extends JpaRepository<Career, Long> {
+public interface CareerRepository extends JpaRepository<Career, Long>, JpaSpecificationExecutor<Career> {
     boolean existsByNameIgnoreCase(String name);
     Optional<Career> findByCareerIdAndStatusIn(Long careerId, List<GeneralStatus> statuses);
     Optional<Career> findByCareerIdAndStatus(Long careerId, GeneralStatus status);
@@ -23,8 +24,10 @@ public interface CareerRepository extends JpaRepository<Career, Long> {
             select new com.das.skillmatrix.dto.response.CareerResponse(
                 c.careerId,
                 c.name,
+                c.careerType,
                 c.description,
-                c.status
+                c.status,
+                c.createdAt
             )
             from Career c
             where c.status in (com.das.skillmatrix.entity.GeneralStatus.ACTIVE,

@@ -20,6 +20,8 @@ import com.das.skillmatrix.dto.response.CareerResponse;
 import com.das.skillmatrix.entity.Career;
 import com.das.skillmatrix.entity.GeneralStatus;
 import com.das.skillmatrix.repository.CareerRepository;
+import com.das.skillmatrix.repository.UserRepository;
+import com.das.skillmatrix.entity.User;
 import com.das.skillmatrix.repository.DepartmentRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +29,9 @@ class CareerServiceTest {
 
     @Mock
     private CareerRepository careerRepository;
+
+    @Mock
+    private UserRepository userRepository;
 
     @Mock
     private DepartmentRepository departmentRepository;
@@ -168,5 +173,86 @@ class CareerServiceTest {
         assertEquals(GeneralStatus.DEACTIVE, res.getStatus());
         assertEquals(2, res.getDepartmentsCount());
         assertEquals("Dev", res.getDepartments().get(0).getName());
+    }
+
+    @Test
+    @DisplayName("addManager() should throw when user not found")
+    void addManager_shouldThrow_whenUserNotFound() {
+        Career c = career(1L, "IT", GeneralStatus.ACTIVE);
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE)).thenReturn(Optional.of(c));
+        when(userRepository.findById(2L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, 
+            () -> careerService.addManager(1L, 2L));
+        assertEquals("USER_NOT_FOUND", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("addManager() should throw when user is not active")
+    void addManager_shouldThrow_whenUserNotActive() {
+        Career c = career(1L, "IT", GeneralStatus.ACTIVE);
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE)).thenReturn(Optional.of(c));
+        
+        User u = new User();
+        u.setUserId(2L);
+        u.setStatus(GeneralStatus.DEACTIVE);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(u));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, 
+            () -> careerService.addManager(1L, 2L));
+        assertEquals("USER_NOT_ACTIVE", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("addManager() should throw when user is not a manager")
+    void addManager_shouldThrow_whenUserNotManager() {
+        Career c = career(1L, "IT", GeneralStatus.ACTIVE);
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE)).thenReturn(Optional.of(c));
+        
+        User u = new User();
+        u.setUserId(2L);
+        u.setStatus(GeneralStatus.ACTIVE);
+        u.setRole("Manager Department");
+        when(userRepository.findById(2L)).thenReturn(Optional.of(u));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, 
+            () -> careerService.addManager(1L, 2L));
+        assertEquals("INVALID_MANAGER_ROLE", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("addManager() should add manager and log when successful")
+    void addManager_shouldAddManager_whenValid() {
+        Career c = career(1L, "IT", GeneralStatus.ACTIVE);
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE)).thenReturn(Optional.of(c));
+        
+        User u = new User();
+        u.setUserId(2L);
+        u.setStatus(GeneralStatus.ACTIVE);
+        u.setRole("Manager Career");
+        when(userRepository.findById(2L)).thenReturn(Optional.of(u));
+
+        careerService.addManager(1L, 2L);
+
+        assertEquals(1, c.getManagers().size());
+        assertEquals(2L, c.getManagers().get(0).getUserId());
+        verify(careerRepository).save(c);
+        verify(businessChangeLogService).log("ADD_CAREER_MANAGER", "CAREER", 1L, "managerId", null, "2");
+    }
+
+    @Test
+    @DisplayName("removeManager() should remove manager and log when successful")
+    void removeManager_shouldRemoveManager() {
+        Career c = career(1L, "IT", GeneralStatus.ACTIVE);
+        User u = new User();
+        u.setUserId(2L);
+        c.getManagers().add(u);
+        when(careerRepository.findByCareerIdAndStatus(1L, GeneralStatus.ACTIVE)).thenReturn(Optional.of(c));
+
+        careerService.removeManager(1L, 2L);
+
+        assertEquals(0, c.getManagers().size());
+        verify(careerRepository).save(c);
+        verify(businessChangeLogService).log("REMOVE_CAREER_MANAGER", "CAREER", 1L, "managerId", "2", null);
     }
 }

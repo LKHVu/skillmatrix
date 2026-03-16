@@ -41,6 +41,9 @@ public class Career extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false)
+    private String careerType;
+
     private String description;
 
     @Enumerated(EnumType.STRING)

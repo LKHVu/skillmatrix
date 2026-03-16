@@ -236,9 +236,7 @@ class TeamServiceTest {
         when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
         when(teamMemberRepository.existsByTeam_TeamId(1L)).thenReturn(true);
 
-        String result = teamService.deleteTeam(1L);
-
-        assertEquals("Team has been deactivated successfully.", result);
+        teamService.deleteTeam(1L);
         assertEquals(GeneralStatus.DEACTIVE, activeTeam.getStatus());
         assertNotNull(activeTeam.getDeActiveAt());
         verify(teamRepository).save(activeTeam);
@@ -253,9 +251,7 @@ class TeamServiceTest {
         when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
         when(teamMemberRepository.existsByTeam_TeamId(1L)).thenReturn(false);
 
-        String result = teamService.deleteTeam(1L);
-
-        assertEquals("Team deleted successfully.", result);
+        teamService.deleteTeam(1L);
         assertEquals(GeneralStatus.DELETED, activeTeam.getStatus());
         assertNotNull(activeTeam.getDeletedAt());
         verify(teamRepository).save(activeTeam);

@@ -1,5 +1,7 @@
 package com.das.skillmatrix.dto.response;
 
+import java.time.LocalDateTime;
+
 import com.das.skillmatrix.entity.GeneralStatus;
 
 import lombok.AllArgsConstructor;
@@ -10,6 +12,8 @@ import lombok.Data;
 public class CareerResponse {
     private Long careerId;
     private String name;
+    private String careerType;
     private String description;
     private GeneralStatus status;
+    private LocalDateTime createdAt;
 }

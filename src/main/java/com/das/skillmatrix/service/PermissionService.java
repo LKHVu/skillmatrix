@@ -4,7 +4,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import com.das.skillmatrix.entity.Career;
 import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.entity.Team;
 import com.das.skillmatrix.entity.User;
@@ -24,114 +23,103 @@ public class PermissionService {
     private final DepartmentRepository departmentRepository;
     private final TeamRepository teamRepository;
 
-    // CAREER
+    // ================= CAREER =================
+
     public boolean checkCareerAccess(Long careerId) {
         User user = getCurrentUser();
-        if (isAdmin(user))
-            return true;
+        if (isAdmin(user)) return true;
         return careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId());
     }
 
-    // DEPARTMENT
+    // ================= DEPARTMENT =================
+
     public boolean checkDepartmentAccess(Long departmentId) {
         User user = getCurrentUser();
-        if (isAdmin(user))
-            return true;
+        if (isAdmin(user)) return true;
+
         Long careerId = departmentRepository.findCareerIdByDepartmentId(departmentId).orElse(null);
-        if (careerId == null)
-            return false;
+        if (careerId == null) return false;
+
         if (careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId()))
             return true;
+
         return departmentRepository.existsByDepartmentIdAndManagers_UserId(departmentId, user.getUserId());
-    }
-
-    public User getCurrentUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated())
-            return null;
-        return userRepository.findUserByEmail(auth.getName());
-    }
-
-    public boolean isAdmin(User user) {
-        return user != null && "ADMIN".equals(user.getRole());
-    }
-
-    private boolean isCareerManager(User user, Career career) {
-        return user != null && career != null
-                && career.getManagers().stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
-    }
-
-    public boolean isDepartmentManager(User user, Department department) {
-        return user != null && department != null
-                && department.getManagers().stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
     }
 
     public boolean canManageDepartment(Long departmentId) {
         User user = getCurrentUser();
-        if (isAdmin(user))
-            return true;
-        Department dept = departmentRepository.findById(departmentId).orElse(null);
-        if (dept == null)
-            return false;
-        return isCareerManager(user, dept.getCareer());
-    }
+        if (isAdmin(user)) return true;
 
-    public boolean canManageTeam(Long teamId) {
-        User user = getCurrentUser();
-        if (isAdmin(user))
-            return true;
-        Team team = teamRepository.findById(teamId).orElse(null);
-        if (team == null)
-            return false;
-        if (isCareerManager(user, team.getDepartment().getCareer()))
-            return true;
-        return isDepartmentManager(user, team.getDepartment());
-    }
+        Long careerId = departmentRepository.findCareerIdByDepartmentId(departmentId).orElse(null);
+        if (careerId == null) return false;
 
-    public boolean canMoveDepartment(Long sourceCareerId, Long targetCareerId) {
-        User user = getCurrentUser();
-        if (isAdmin(user))
-            return true;
-        return checkCareerAccess(sourceCareerId) && checkCareerAccess(targetCareerId);
+        return careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId());
     }
 
     public boolean canViewDepartmentList(Long careerId) {
         User user = getCurrentUser();
-        if (isAdmin(user))
+        if (isAdmin(user)) return true;
+
+        if (careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId()))
             return true;
-        if (checkCareerAccess(careerId))
-            return true;
+
         return departmentRepository.existsByCareer_CareerIdAndManagers_UserId(careerId, user.getUserId());
     }
 
     public boolean canViewDepartmentDetail(Long departmentId) {
         User user = getCurrentUser();
-        if (isAdmin(user))
-            return true;
-        Department dept = departmentRepository.findById(departmentId).orElse(null);
-        if (dept == null)
-            return false;
-        return canViewDepartmentList(dept.getCareer().getCareerId());
+        if (isAdmin(user)) return true;
+
+        Long careerId = departmentRepository.findCareerIdByDepartmentId(departmentId).orElse(null);
+        if (careerId == null) return false;
+
+        return canViewDepartmentList(careerId);
     }
+
+    public boolean canMoveDepartment(Long sourceCareerId, Long targetCareerId) {
+        User user = getCurrentUser();
+        if (isAdmin(user)) return true;
+        return checkCareerAccess(sourceCareerId) && checkCareerAccess(targetCareerId);
+    }
+
+    // ================= TEAM =================
 
     public boolean checkTeamAccess(Long teamId) {
         User user = getCurrentUser();
-        if (isAdmin(user))
+        if (isAdmin(user)) return true;
+
+        Long careerId = teamRepository.findCareerIdByTeamId(teamId).orElse(null);
+        if (careerId == null) return false;
+
+        if (careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId()))
             return true;
-        Team team = teamRepository.findById(teamId).orElse(null);
-        if (team == null)
-            return false;
-        if (isCareerManager(user, team.getDepartment().getCareer()))
+
+        Long departmentId = teamRepository.findDepartmentIdByTeamId(teamId).orElse(null);
+
+        if (departmentId != null &&
+            departmentRepository.existsByDepartmentIdAndManagers_UserId(departmentId, user.getUserId()))
             return true;
-        if (isDepartmentManager(user, team.getDepartment()))
-            return true;
-        return isTeamManager(user, team);
+
+        return teamRepository.existsByTeamIdAndManagers_UserId(teamId, user.getUserId());
     }
 
-    private boolean isTeamManager(User user, Team team) {
-        return user != null && team != null
-                && team.getManagers().stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
+    public boolean canManageTeam(Long teamId) {
+        User user = getCurrentUser();
+        if (isAdmin(user)) return true;
+
+        Long careerId = teamRepository.findCareerIdByTeamId(teamId).orElse(null);
+        if (careerId == null) return false;
+
+        if (careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId()))
+            return true;
+
+        Long departmentId = teamRepository.findDepartmentIdByTeamId(teamId).orElse(null);
+
+        return departmentId != null &&
+               departmentRepository.existsByDepartmentIdAndManagers_UserId(departmentId, user.getUserId());
     }
+
+    // ================= MASTER EXTRA METHODS =================
 
     public String getManagerType(User user) {
         if (isAdmin(user)) return "ADMIN";
@@ -144,14 +132,17 @@ public class PermissionService {
     public boolean canMoveTeamDepartment(Long currentDepartmentId, Long targetDepartmentId) {
         User user = getCurrentUser();
         if (isAdmin(user)) return true;
+
         if (!user.getManagedCareers().isEmpty()) {
             return checkDepartmentAccess(currentDepartmentId)
                 && checkDepartmentAccess(targetDepartmentId);
         }
+
         if (!user.getManagedDepartments().isEmpty()) {
-            return isDepartmentManager(user, departmentRepository.findById(currentDepartmentId).orElse(null))
-                && isDepartmentManager(user, departmentRepository.findById(targetDepartmentId).orElse(null));
+            return departmentRepository.existsByDepartmentIdAndManagers_UserId(currentDepartmentId, user.getUserId())
+                && departmentRepository.existsByDepartmentIdAndManagers_UserId(targetDepartmentId, user.getUserId());
         }
+
         return false;
     }
 
@@ -165,17 +156,37 @@ public class PermissionService {
     public boolean checkTeamViewAccess(Long teamId) {
         User user = getCurrentUser();
         if (isAdmin(user)) return true;
-        Team team = teamRepository.findById(teamId).orElse(null);
-        if (team == null) return false;
-        if (isCareerManager(user, team.getDepartment().getCareer())) return true;
-        Long teamCareerId = team.getDepartment().getCareer().getCareerId();
+
+        Long careerId = teamRepository.findCareerIdByTeamId(teamId).orElse(null);
+        if (careerId == null) return false;
+
+        if (careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId()))
+            return true;
+
+        Long departmentId = teamRepository.findDepartmentIdByTeamId(teamId).orElse(null);
+
+        if (departmentId == null) return false;
+
         for (Department dept : user.getManagedDepartments()) {
-            if (dept.getCareer().getCareerId().equals(teamCareerId)) return true;
+            if (dept.getDepartmentId().equals(departmentId)) return true;
         }
-        Long teamDepartmentId = team.getDepartment().getDepartmentId();
-        for (Team managedTeam : user.getManagedTeams()) {
-            if (managedTeam.getDepartment().getDepartmentId().equals(teamDepartmentId)) return true;
+
+        for (Team team : user.getManagedTeams()) {
+            if (team.getTeamId().equals(teamId)) return true;
         }
+
         return false;
+    }
+
+    // ================= COMMON =================
+
+    public User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return null;
+        return userRepository.findUserByEmail(auth.getName());
+    }
+
+    public boolean isAdmin(User user) {
+        return user != null && "ADMIN".equals(user.getRole());
     }
 }

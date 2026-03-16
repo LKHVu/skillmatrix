@@ -174,19 +174,18 @@ class TeamControllerTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/teams/{id} - should return 200 with message")
+    @DisplayName("DELETE /api/teams/{id} - should return 200")
     void deleteTeam_success() throws Exception {
-        when(teamService.deleteTeam(1L)).thenReturn("Team deleted successfully.");
+        doNothing().when(teamService).deleteTeam(1L);
         mockMvc.perform(delete("/api/teams/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").value("Team deleted successfully."));
+                .andExpect(jsonPath("$.success").value(true));
         verify(teamService).deleteTeam(1L);
     }
     @Test
     @DisplayName("DELETE /api/teams/{id} - should return 400 when not active")
     void deleteTeam_notActive() throws Exception {
-        when(teamService.deleteTeam(1L)).thenThrow(new IllegalArgumentException("TEAM_NOT_ACTIVE"));
+        doThrow(new IllegalArgumentException("TEAM_NOT_ACTIVE")).when(teamService).deleteTeam(1L);
         mockMvc.perform(delete("/api/teams/1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));

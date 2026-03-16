@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,10 +65,11 @@ class CareerControllerTest {
         void create_shouldReturnCareer_whenValid() throws Exception {
                 CareerRequest req = new CareerRequest();
                 req.setName("TMA Solutions - IT");
+                req.setCareerType("IT");
                 req.setDescription("Information Technology");
 
-                CareerResponse resp = new CareerResponse(1L, "TMA Solutions - IT", "Information Technology",
-                                GeneralStatus.ACTIVE);
+                CareerResponse resp = new CareerResponse(1L, "TMA Solutions - IT", "IT", "Information Technology",
+                                GeneralStatus.ACTIVE, LocalDateTime.now());
                 when(careerService.create(any(CareerRequest.class))).thenReturn(resp);
 
                 mockMvc.perform(post("/api/careers")
@@ -85,6 +87,7 @@ class CareerControllerTest {
         void create_shouldReturn400_whenInvalidInput() throws Exception {
                 CareerRequest req = new CareerRequest();
                 req.setName("");
+                req.setCareerType("IT");
                 req.setDescription("x");
 
                 mockMvc.perform(post("/api/careers")
@@ -99,10 +102,11 @@ class CareerControllerTest {
         void update_shouldReturnCareer_whenValid() throws Exception {
                 CareerRequest req = new CareerRequest();
                 req.setName("TMA Solutions - IT Updated");
+                req.setCareerType("IT");
                 req.setDescription("Desc");
 
-                CareerResponse resp = new CareerResponse(1L, "TMA Solutions - IT Updated", "Desc",
-                                GeneralStatus.ACTIVE);
+                CareerResponse resp = new CareerResponse(1L, "TMA Solutions - IT Updated", "IT", "Desc",
+                                GeneralStatus.ACTIVE, LocalDateTime.now());
 
                 when(permissionService.checkCareerAccess(1L)).thenReturn(true);
                 when(careerService.update(eq(1L), any(CareerRequest.class))).thenReturn(resp);
@@ -120,8 +124,8 @@ class CareerControllerTest {
         @DisplayName("GET /api/careers should return 200 and paged list (ACTIVE + DEACTIVE only)")
         void list_shouldReturnPagedList() throws Exception {
                 List<CareerResponse> items = List.of(
-                                new CareerResponse(1L, "IT", "Desc", GeneralStatus.ACTIVE),
-                                new CareerResponse(2L, "Banking", "Desc", GeneralStatus.DEACTIVE));
+                                new CareerResponse(1L, "IT", "Tech", "Desc", GeneralStatus.ACTIVE, LocalDateTime.now()),
+                                new CareerResponse(2L, "Banking", "Finance", "Desc", GeneralStatus.DEACTIVE, LocalDateTime.now()));
 
                 PageResponse<CareerResponse> page = new PageResponse<>(
                                 items,
@@ -132,7 +136,7 @@ class CareerControllerTest {
                                 false,
                                 false);
 
-                when(careerService.list(any(Pageable.class))).thenReturn(page);
+                when(careerService.list(any(com.das.skillmatrix.dto.request.CareerFilterRequest.class), any(Pageable.class))).thenReturn(page);
 
                 mockMvc.perform(get("/api/careers?page=0&size=20"))
                                 .andExpect(status().isOk())
@@ -152,10 +156,12 @@ class CareerControllerTest {
                 CareerDetailResponse resp = new CareerDetailResponse(
                                 1L,
                                 "IT",
+                                "Tech",
                                 "Desc",
                                 1,
                                 List.of(new DepartmentBrief(10L, "Dev")),
-                                GeneralStatus.DEACTIVE);
+                                GeneralStatus.DEACTIVE,
+                                LocalDateTime.now());
 
                 when(permissionService.checkCareerAccess(1L)).thenReturn(true);
                 when(careerService.detail(1L)).thenReturn(resp);
@@ -190,5 +196,25 @@ class CareerControllerTest {
                                 .andExpect(status().isNotFound())
                                 .andExpect(jsonPath("$.success").value(false))
                                 .andExpect(jsonPath("$.error.errorCode").value(404));
+        }
+
+        @Test
+        @DisplayName("POST /api/careers/{id}/managers/{userId} should return 200")
+        void addManager_shouldReturn200_whenSuccess() throws Exception {
+                doNothing().when(careerService).addManager(1L, 2L);
+
+                mockMvc.perform(post("/api/careers/1/managers/2"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("DELETE /api/careers/{id}/managers/{userId} should return 200")
+        void removeManager_shouldReturn200_whenSuccess() throws Exception {
+                doNothing().when(careerService).removeManager(1L, 2L);
+
+                mockMvc.perform(delete("/api/careers/1/managers/2"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.success").value(true));
         }
 }

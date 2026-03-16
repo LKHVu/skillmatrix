@@ -169,7 +169,7 @@ class DepartmentServiceTest {
         Department d = department(10L, "Dev", GeneralStatus.DEACTIVE, career(1L, GeneralStatus.ACTIVE));
         d.setDescription("Desc");
         when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
-        when(departmentRepository.countByDepartmentIdAndStatusIn(10L,
+        when(teamRepository.countByDepartment_DepartmentIdAndStatusIn(10L,
                 List.of(GeneralStatus.ACTIVE, GeneralStatus.DEACTIVE))).thenReturn(3L);
         DepartmentDetailResponse res = departmentService.detail(10L);
         assertEquals(10L, res.getDepartmentId());

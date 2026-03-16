@@ -8,5 +8,8 @@ public class CareerRequest {
     @NotBlank(message = "Name is required")
     private String name;
 
+    @NotBlank(message = "Career Type is required")
+    private String careerType;
+
     private String description;
 }

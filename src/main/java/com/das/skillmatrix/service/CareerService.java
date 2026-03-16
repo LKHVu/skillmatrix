@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.das.skillmatrix.annotation.LogActivity;
+import com.das.skillmatrix.dto.request.CareerFilterRequest;
 import com.das.skillmatrix.dto.request.CareerRequest;
 import com.das.skillmatrix.dto.response.CareerDetailResponse;
 import com.das.skillmatrix.dto.response.CareerResponse;
@@ -19,6 +20,8 @@ import com.das.skillmatrix.entity.User;
 import com.das.skillmatrix.repository.CareerRepository;
 import com.das.skillmatrix.repository.DepartmentRepository;
 import com.das.skillmatrix.repository.UserRepository;
+import com.das.skillmatrix.repository.specification.CareerSpecification;
+
 
 import lombok.RequiredArgsConstructor;
 
@@ -40,9 +43,10 @@ public class CareerService {
         }
         Career c = new Career();
         c.setName(name);
+        c.setCareerType(req.getCareerType());
         c.setDescription(req.getDescription());
         c = careerRepository.save(c);
-        return new CareerResponse(c.getCareerId(), c.getName(), c.getDescription(), c.getStatus());
+        return new CareerResponse(c.getCareerId(), c.getName(), c.getCareerType(), c.getDescription(), c.getStatus(), c.getCreatedAt());
     }
 
     @LogActivity(action = "UPDATE_CAREER", entityType = "CAREER")
@@ -53,9 +57,10 @@ public class CareerService {
             throw new IllegalArgumentException("CAREER_NAME_EXISTS");
         }
         c.setName(newName);
+        c.setCareerType(req.getCareerType());
         c.setDescription(req.getDescription());
         careerRepository.save(c);
-        return new CareerResponse(c.getCareerId(), c.getName(), c.getDescription(), c.getStatus());
+        return new CareerResponse(c.getCareerId(), c.getName(), c.getCareerType(), c.getDescription(), c.getStatus(), c.getCreatedAt());
     }
 
     @LogActivity(action = "DELETE_CAREER", entityType = "CAREER")
@@ -77,10 +82,22 @@ public class CareerService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<CareerResponse> list(Pageable pageable) {
-        var page = careerRepository.findCareerResponses(pageable);
+    public PageResponse<CareerResponse> list(CareerFilterRequest filter, Pageable pageable) {
+        var spec = CareerSpecification.filterCareers(filter);
+        var page = careerRepository.findAll(spec, pageable);
+        
+        List<CareerResponse> content = page.getContent().stream()
+            .map(c -> new CareerResponse(
+                c.getCareerId(),
+                c.getName(),
+                c.getCareerType(),
+                c.getDescription(),
+                c.getStatus(),
+                c.getCreatedAt()
+            )).toList();
+
         return new PageResponse<>(
-                page.getContent(),
+                content,
                 page.getNumber(),
                 page.getSize(),
                 page.getTotalElements(),
@@ -96,10 +113,12 @@ public class CareerService {
         return new CareerDetailResponse(
                 c.getCareerId(),
                 c.getName(),
+                c.getCareerType(),
                 c.getDescription(),
                 depBriefs.size(),
                 depBriefs,
-                c.getStatus());
+                c.getStatus(),
+                c.getCreatedAt());
     }
 
     private Career getActiveCareerOrThrow(Long id) {
@@ -120,16 +139,37 @@ public class CareerService {
         return name == null ? null : name.trim().replaceAll("\\s+", " ");
     }
 
-    @LogActivity(action = "ASSIGN_CAREER_MANAGERS", entityType = "CAREER")
-    public void assignManagers(Long careerId, List<Long> managerIds) {
+    @LogActivity(action = "ADD_CAREER_MANAGER", entityType = "CAREER")
+    public void addManager(Long careerId, Long userId) {
         Career career = getActiveCareerOrThrow(careerId);
-        String oldManagerIds = career.getManagers().stream()
-                .map(u -> u.getUserId().toString()).toList().toString();
-        List<User> managers = userRepository.findAllById(managerIds);
-        career.setManagers(managers);
-        careerRepository.save(career);
-        businessChangeLogService.log(
-                "REASSIGN_CAREER_MANAGERS", "CAREER", careerId,
-                "managerIds", oldManagerIds, managerIds.toString());
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("USER_NOT_FOUND"));
+        if (!GeneralStatus.ACTIVE.name().equals(user.getStatus().name())) {
+            throw new IllegalArgumentException("USER_NOT_ACTIVE");
+        }
+        if (!"Manager Career".equalsIgnoreCase(user.getRole())) {
+            throw new IllegalArgumentException("INVALID_MANAGER_ROLE");
+        }
+        boolean alreadyManager = career.getManagers().stream()
+                .anyMatch(u -> u.getUserId().equals(userId));
+        if (!alreadyManager) {
+            career.getManagers().add(user);
+            careerRepository.save(career);
+            businessChangeLogService.log(
+                    "ADD_CAREER_MANAGER", "CAREER", careerId,
+                    "managerId", null, userId.toString());
+        }
+    }
+
+    @LogActivity(action = "REMOVE_CAREER_MANAGER", entityType = "CAREER")
+    public void removeManager(Long careerId, Long userId) {
+        Career career = getActiveCareerOrThrow(careerId);
+        boolean removed = career.getManagers().removeIf(u -> u.getUserId().equals(userId));
+        if (removed) {
+            careerRepository.save(career);
+            businessChangeLogService.log(
+                    "REMOVE_CAREER_MANAGER", "CAREER", careerId,
+                    "managerId", userId.toString(), null);
+        }
     }
 }
