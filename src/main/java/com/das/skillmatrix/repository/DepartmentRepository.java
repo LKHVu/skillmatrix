@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -16,7 +17,7 @@ import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.entity.GeneralStatus;
 
 @Repository
-public interface DepartmentRepository extends JpaRepository<Department, Long> {
+public interface DepartmentRepository extends JpaRepository<Department, Long>, JpaSpecificationExecutor<Department> {
     long countByCareer_CareerId(Long careerId);
     List<Department> findByCareer_CareerId(Long careerId);
     List<Department> findByCareer_CareerIdIn(List<Long> careerIds);
@@ -26,6 +27,7 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     @Query("SELECT d.career.careerId FROM Department d WHERE d.departmentId = :departmentId")
     Optional<Long> findCareerIdByDepartmentId(Long departmentId);
     List<Department> findByStatusAndDeletedAtBefore(GeneralStatus status, LocalDateTime dateTime);
+    List<Department> findByManagers_UserId(Long userId);
     @Query("""
             select new com.das.skillmatrix.dto.response.DepartmentBrief(
                 d.departmentId,
@@ -42,7 +44,9 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
                 d.name,
                 d.description,
                 d.career.careerId,
-                d.status
+                d.career.name,
+                d.status,
+                d.createdAt
             )
             from Department d
             where d.career.careerId = :careerId
