@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.das.skillmatrix.dto.request.DepartmentFilterRequest;
 import com.das.skillmatrix.dto.request.DepartmentRequest;
 import com.das.skillmatrix.dto.response.ApiResponse;
 import com.das.skillmatrix.dto.response.DepartmentDetailResponse;
@@ -32,7 +34,7 @@ public class DepartmentController {
 
     private final DepartmentService departmentService;
 
-    @PreAuthorize("@permissionService.checkCareerAccess(#req.careerId)")
+    @PreAuthorize("@permissionService.canManageDepartment_byCareerId(#req.careerId)")
     @PostMapping
     public ResponseEntity<ApiResponse<DepartmentResponse>> create(@Valid @RequestBody DepartmentRequest req) {
         return ResponseEntity.ok(new ApiResponse<>(departmentService.create(req), true, null));
@@ -43,14 +45,6 @@ public class DepartmentController {
     public ResponseEntity<ApiResponse<DepartmentResponse>> update(@PathVariable Long id,
             @Valid @RequestBody DepartmentRequest req) {
         return ResponseEntity.ok(new ApiResponse<>(departmentService.update(id, req), true, null));
-    }
-
-    @PreAuthorize("@permissionService.canManageDepartment(#departmentId)")
-    @PostMapping("/{departmentId}/managers")
-    public ResponseEntity<ApiResponse<Void>> assignManagers(@PathVariable Long departmentId,
-            @RequestBody java.util.List<Long> managerIds) {
-        departmentService.assignManagers(departmentId, managerIds);
-        return ResponseEntity.ok(new ApiResponse<>(null, true, null));
     }
 
     @PreAuthorize("@permissionService.canManageDepartment(#id)")
@@ -64,13 +58,28 @@ public class DepartmentController {
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<DepartmentResponse>>> list(
             @RequestParam Long careerId,
+            @ModelAttribute DepartmentFilterRequest filter,
             @PageableDefault(size = 10, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        return ResponseEntity.ok(new ApiResponse<>(departmentService.listByCareer(careerId, pageable), true, null));
+        return ResponseEntity.ok(new ApiResponse<>(departmentService.list(careerId, filter, pageable), true, null));
     }
 
     @PreAuthorize("@permissionService.canViewDepartmentDetail(#id)")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<DepartmentDetailResponse>> detail(@PathVariable Long id) {
         return ResponseEntity.ok(new ApiResponse<>(departmentService.detail(id), true, null));
+    }
+
+    @PreAuthorize("@permissionService.canManageDepartment(#id)")
+    @PostMapping("/{id}/managers/{userId}")
+    public ResponseEntity<ApiResponse<Void>> addManager(@PathVariable Long id, @PathVariable Long userId) {
+        departmentService.addManager(id, userId);
+        return ResponseEntity.ok(new ApiResponse<>(null, true, null));
+    }
+
+    @PreAuthorize("@permissionService.canManageDepartment(#id)")
+    @DeleteMapping("/{id}/managers/{userId}")
+    public ResponseEntity<ApiResponse<Void>> removeManager(@PathVariable Long id, @PathVariable Long userId) {
+        departmentService.removeManager(id, userId);
+        return ResponseEntity.ok(new ApiResponse<>(null, true, null));
     }
 }

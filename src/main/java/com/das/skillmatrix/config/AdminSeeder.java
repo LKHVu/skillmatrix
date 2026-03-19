@@ -26,6 +26,11 @@ public class AdminSeeder {
     private static final String MANAGER_FULL_NAME = "Manager Career";
     private static final String MANAGER_ROLE = "Manager Career";
 
+    private static final String MD_EMAIL = "manager_department@skillmatrix.com";
+    private static final String MD_PASSWORD = "123456";
+    private static final String MD_FULL_NAME = "Manager Department";
+    private static final String MD_ROLE = "Manager Department";
+
     @Bean
     CommandLineRunner seedAdminUser() {
         return args -> {
@@ -49,6 +54,17 @@ public class AdminSeeder {
                 manager.setRole(MANAGER_ROLE);
                 manager.setStatus(GeneralStatus.ACTIVE);
                 userRepository.save(manager);
+            }
+
+            User managerDept = userRepository.findUserByEmail(MD_EMAIL);
+            if (managerDept == null) {
+                managerDept = new User();
+                managerDept.setEmail(MD_EMAIL);
+                managerDept.setPasswordHash(passwordEncoder.encode(MD_PASSWORD));
+                managerDept.setFullName(MD_FULL_NAME);
+                managerDept.setRole(MD_ROLE);
+                managerDept.setStatus(GeneralStatus.ACTIVE);
+                userRepository.save(managerDept);
             }
         };
     }

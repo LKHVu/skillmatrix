@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,7 +19,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
+import com.das.skillmatrix.dto.request.DepartmentFilterRequest;
 import com.das.skillmatrix.dto.request.DepartmentRequest;
 import com.das.skillmatrix.dto.response.DepartmentDetailResponse;
 import com.das.skillmatrix.dto.response.DepartmentResponse;
@@ -25,7 +29,7 @@ import com.das.skillmatrix.dto.response.PageResponse;
 import com.das.skillmatrix.entity.Career;
 import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.entity.GeneralStatus;
-import com.das.skillmatrix.entity.Team;
+import com.das.skillmatrix.entity.User;
 import com.das.skillmatrix.repository.CareerRepository;
 import com.das.skillmatrix.repository.DepartmentRepository;
 import com.das.skillmatrix.repository.TeamRepository;
@@ -66,7 +70,9 @@ class DepartmentServiceTest {
     private Career career(Long id, GeneralStatus status) {
         Career c = new Career();
         c.setCareerId(id);
+        c.setName("Career " + id);
         c.setStatus(status);
+        c.setManagers(new ArrayList<>());
         return c;
     }
 
@@ -74,10 +80,25 @@ class DepartmentServiceTest {
         Department d = new Department();
         d.setDepartmentId(id);
         d.setName(name);
+        d.setDescription("Desc");
         d.setStatus(status);
         d.setCareer(career);
+        d.setCreatedAt(LocalDateTime.of(2025, 1, 15, 10, 0));
+        d.setManagers(new ArrayList<>());
         return d;
     }
+
+    private User user(Long id, String role, GeneralStatus status) {
+        User u = new User();
+        u.setUserId(id);
+        u.setFullName("User " + id);
+        u.setEmail("user" + id + "@test.com");
+        u.setRole(role);
+        u.setStatus(status);
+        return u;
+    }
+
+    // ===================== CREATE =====================
 
     @Test
     @DisplayName("create() should create new when valid")
@@ -87,14 +108,15 @@ class DepartmentServiceTest {
         when(departmentRepository.existsByNameIgnoreCaseAndCareer_CareerId("Dev", 1L)).thenReturn(false);
 
         Department saved = department(10L, "Dev", GeneralStatus.ACTIVE, c);
-        saved.setDescription("Desc");
         when(departmentRepository.save(any(Department.class))).thenReturn(saved);
 
         DepartmentResponse res = departmentService.create(req("Dev", "Desc", 1L));
 
         assertEquals(10L, res.getDepartmentId());
         assertEquals("Dev", res.getName());
+        assertEquals("Career 1", res.getCareerName());
         assertEquals(GeneralStatus.ACTIVE, res.getStatus());
+        assertNotNull(res.getCreatedAt());
         verify(departmentRepository).save(any(Department.class));
     }
 
@@ -109,6 +131,8 @@ class DepartmentServiceTest {
                 () -> departmentService.create(req("Dev", "Desc", 1L)));
         assertEquals("DEPARTMENT_NAME_EXISTS_IN_CAREER", ex.getMessage());
     }
+
+    // ===================== UPDATE =====================
 
     @Test
     @DisplayName("update() should throw when not active")
@@ -128,12 +152,42 @@ class DepartmentServiceTest {
         Career newCareer = career(2L, GeneralStatus.ACTIVE);
 
         when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
+        when(permissionService.isManagerDepartmentOnly()).thenReturn(false);
         when(careerRepository.findByCareerIdAndStatus(2L, GeneralStatus.ACTIVE)).thenReturn(Optional.of(newCareer));
         when(permissionService.canMoveDepartment(1L, 2L)).thenReturn(false);
 
         assertThrows(org.springframework.security.access.AccessDeniedException.class,
                 () -> departmentService.update(10L, req("Dev", "Desc", 2L)));
     }
+
+    @Test
+    @DisplayName("update() should block Manager Department from changing career")
+    void update_shouldBlockManagerDepartment_whenChangingCareer() {
+        Department d = department(10L, "Dev", GeneralStatus.ACTIVE, career(1L, GeneralStatus.ACTIVE));
+        when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
+        when(permissionService.isManagerDepartmentOnly()).thenReturn(true);
+
+        org.springframework.security.access.AccessDeniedException ex = assertThrows(
+                org.springframework.security.access.AccessDeniedException.class,
+                () -> departmentService.update(10L, req("Dev", "Desc", 2L)));
+        assertEquals("MANAGER_DEPARTMENT_CANNOT_CHANGE_CAREER", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("update() should return response with careerName and createdAt")
+    void update_shouldReturnUpdatedResponse() {
+        Career c = career(1L, GeneralStatus.ACTIVE);
+        Department d = department(10L, "Dev", GeneralStatus.ACTIVE, c);
+        when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
+        when(departmentRepository.save(any(Department.class))).thenReturn(d);
+
+        DepartmentResponse res = departmentService.update(10L, req("Dev", "Updated Desc", 1L));
+
+        assertEquals("Career 1", res.getCareerName());
+        assertNotNull(res.getCreatedAt());
+    }
+
+    // ===================== DELETE =====================
 
     @Test
     @DisplayName("delete() should set DEACTIVE when having teams")
@@ -163,20 +217,23 @@ class DepartmentServiceTest {
         verify(departmentRepository).save(d);
     }
 
+    // ===================== DETAIL =====================
+
     @Test
-    @DisplayName("detail() should return details for Visible department")
+    @DisplayName("detail() should return details with careerName and createdAt")
     void detail_shouldReturnDetail() {
-        Department d = department(10L, "Dev", GeneralStatus.DEACTIVE, career(1L, GeneralStatus.ACTIVE));
-        d.setDescription("Desc");
+        Career c = career(1L, GeneralStatus.ACTIVE);
+        Department d = department(10L, "Dev", GeneralStatus.DEACTIVE, c);
         when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
         when(teamRepository.countByDepartment_DepartmentIdAndStatusIn(10L,
                 List.of(GeneralStatus.ACTIVE, GeneralStatus.DEACTIVE))).thenReturn(3L);
+
         DepartmentDetailResponse res = departmentService.detail(10L);
+
         assertEquals(10L, res.getDepartmentId());
         assertEquals("Dev", res.getName());
-        assertEquals("Desc", res.getDescription());
-        assertEquals(1L, res.getCareerId());
-        assertEquals(GeneralStatus.DEACTIVE, res.getStatus());
+        assertEquals("Career 1", res.getCareerName());
+        assertNotNull(res.getCreatedAt());
         assertEquals(3L, res.getTotalTeams());
     }
 
@@ -191,21 +248,92 @@ class DepartmentServiceTest {
         assertEquals("DEPARTMENT_NOT_ACTIVE", ex.getMessage());
     }
 
+    // ===================== LIST (by Career) =====================
+
     @Test
-    @DisplayName("listByCareer() should return page of responses")
-    void listByCareer_shouldReturnPage() {
+    @DisplayName("list() should return filtered list by career")
+    @SuppressWarnings("unchecked")
+    void list_shouldReturnFilteredList() {
         Career c = career(1L, GeneralStatus.ACTIVE);
         when(careerRepository.findById(1L)).thenReturn(Optional.of(c));
 
-        DepartmentResponse dr = new DepartmentResponse(10L, "Dev", "Desc", 1L, GeneralStatus.ACTIVE);
-        Page<DepartmentResponse> page = new PageImpl<>(List.of(dr));
+        Department d = department(10L, "Dev", GeneralStatus.ACTIVE, c);
+        Page<Department> page = new PageImpl<>(List.of(d));
+        when(departmentRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
 
-        when(departmentRepository.findDepartmentResponsesByCareerId(eq(1L), any(Pageable.class)))
-                .thenReturn(page);
-
-        PageResponse<DepartmentResponse> res = departmentService.listByCareer(1L, PageRequest.of(0, 10));
+        DepartmentFilterRequest filter = new DepartmentFilterRequest();
+        PageResponse<DepartmentResponse> res = departmentService.list(1L, filter, PageRequest.of(0, 10));
 
         assertEquals(1, res.getTotalElements());
         assertEquals("Dev", res.getItems().get(0).getName());
+        assertEquals("Career 1", res.getItems().get(0).getCareerName());
+    }
+
+    // ===================== ADD MANAGER =====================
+
+    @Test
+    @DisplayName("addManager() should add when valid")
+    void addManager_shouldAddWhenValid() {
+        Career c = career(1L, GeneralStatus.ACTIVE);
+        Department d = department(10L, "Dev", GeneralStatus.ACTIVE, c);
+        User u = user(100L, "Manager Department", GeneralStatus.ACTIVE);
+
+        when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(u));
+        when(departmentRepository.save(any(Department.class))).thenReturn(d);
+
+        departmentService.addManager(10L, 100L);
+
+        assertTrue(d.getManagers().contains(u));
+        verify(departmentRepository).save(d);
+    }
+
+    @Test
+    @DisplayName("addManager() should throw when invalid role")
+    void addManager_shouldThrowWhenInvalidRole() {
+        Department d = department(10L, "Dev", GeneralStatus.ACTIVE, career(1L, GeneralStatus.ACTIVE));
+        User u = user(100L, "Manager Career", GeneralStatus.ACTIVE);
+
+        when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(u));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> departmentService.addManager(10L, 100L));
+        assertEquals("INVALID_MANAGER_ROLE", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("addManager() should skip when already manager (idempotent)")
+    void addManager_shouldSkipWhenAlreadyManager() {
+        Career c = career(1L, GeneralStatus.ACTIVE);
+        Department d = department(10L, "Dev", GeneralStatus.ACTIVE, c);
+        User u = user(100L, "Manager Department", GeneralStatus.ACTIVE);
+        d.getManagers().add(u);
+
+        when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
+        when(userRepository.findById(100L)).thenReturn(Optional.of(u));
+
+        departmentService.addManager(10L, 100L);
+
+        verify(departmentRepository, never()).save(any(Department.class));
+    }
+
+    // ===================== REMOVE MANAGER =====================
+
+    @Test
+    @DisplayName("removeManager() should remove manager (like Career pattern)")
+    void removeManager_shouldRemoveManager() {
+        Career c = career(1L, GeneralStatus.ACTIVE);
+        Department d = department(10L, "Dev", GeneralStatus.ACTIVE, c);
+        User u = user(100L, "Manager Department", GeneralStatus.ACTIVE);
+        d.getManagers().add(u);
+
+        when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
+        when(departmentRepository.save(any(Department.class))).thenReturn(d);
+
+        departmentService.removeManager(10L, 100L);
+
+        assertFalse(d.getManagers().contains(u));
+        verify(departmentRepository).save(d);
     }
 }

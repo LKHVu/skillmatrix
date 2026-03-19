@@ -82,6 +82,19 @@ public class PermissionService {
         return checkCareerAccess(sourceCareerId) && checkCareerAccess(targetCareerId);
     }
 
+    public boolean canManageDepartment_byCareerId(Long careerId) {
+        User user = getCurrentUser();
+        if (isAdmin(user)) return true;
+        return careerRepository.existsByCareerIdAndManagers_UserId(careerId, user.getUserId());
+    }
+
+    public boolean isManagerDepartmentOnly() {
+        User user = getCurrentUser();
+        if (isAdmin(user)) return false;
+        if (!user.getManagedCareers().isEmpty()) return false;
+        return !user.getManagedDepartments().isEmpty();
+    }
+
     // ================= TEAM =================
 
     public boolean checkTeamAccess(Long teamId) {

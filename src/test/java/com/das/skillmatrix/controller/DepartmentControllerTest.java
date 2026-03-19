@@ -25,7 +25,6 @@ import com.das.skillmatrix.dto.request.DepartmentRequest;
 import com.das.skillmatrix.dto.response.DepartmentDetailResponse;
 import com.das.skillmatrix.dto.response.DepartmentResponse;
 import com.das.skillmatrix.dto.response.PageResponse;
-import com.das.skillmatrix.dto.response.TeamBrief;
 import com.das.skillmatrix.entity.GeneralStatus;
 import com.das.skillmatrix.exception.GlobalExceptionHandler;
 import com.das.skillmatrix.security.JwtUtil;
@@ -60,6 +59,8 @@ class DepartmentControllerTest {
     @MockBean
     CustomUserDetailsService customUserDetailsService;
 
+    private static final LocalDateTime NOW = LocalDateTime.now();
+
     @Test
     @DisplayName("POST /api/departments should return 200 and created department")
     void create_shouldReturnDepartment_whenValid() throws Exception {
@@ -68,9 +69,9 @@ class DepartmentControllerTest {
         req.setDescription("Developer");
         req.setCareerId(1L);
 
-        DepartmentResponse resp = new DepartmentResponse(1L, "DEV", "Developer", 1L, GeneralStatus.ACTIVE);
+        DepartmentResponse resp = new DepartmentResponse(1L, "DEV", "Developer", 1L, "Career 1", GeneralStatus.ACTIVE, NOW);
 
-        when(permissionService.checkCareerAccess(1L)).thenReturn(true);
+        when(permissionService.canManageDepartment_byCareerId(1L)).thenReturn(true);
         when(departmentService.create(any(DepartmentRequest.class))).thenReturn(resp);
 
         mockMvc.perform(post("/api/departments")
@@ -91,7 +92,7 @@ class DepartmentControllerTest {
         req.setDescription("Desc");
         req.setCareerId(1L);
 
-        DepartmentResponse resp = new DepartmentResponse(1L, "DEV Updated", "Desc", 1L, GeneralStatus.ACTIVE);
+        DepartmentResponse resp = new DepartmentResponse(1L, "DEV Updated", "Desc", 1L, "Career 1", GeneralStatus.ACTIVE, NOW);
 
         when(permissionService.checkDepartmentAccess(1L)).thenReturn(true);
         when(departmentService.update(eq(1L), any(DepartmentRequest.class))).thenReturn(resp);
@@ -105,16 +106,16 @@ class DepartmentControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/departments should return 200 and paged list")
+    @DisplayName("GET /api/departments?careerId=1 should return 200 and paged list")
     void list_shouldReturnPagedList() throws Exception {
         List<DepartmentResponse> items = List.of(
-                new DepartmentResponse(1L, "DEV", "Desc", 1L, GeneralStatus.ACTIVE));
+                new DepartmentResponse(1L, "DEV", "Desc", 1L, "Career 1", GeneralStatus.ACTIVE, NOW));
 
         PageResponse<DepartmentResponse> page = new PageResponse<>(
                 items, 0, 10, 1L, 1, false, false);
 
         when(permissionService.canViewDepartmentList(1L)).thenReturn(true);
-        when(departmentService.listByCareer(eq(1L), any(Pageable.class))).thenReturn(page);
+        when(departmentService.list(eq(1L), any(), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/departments?careerId=1"))
                 .andExpect(status().isOk())
@@ -126,7 +127,7 @@ class DepartmentControllerTest {
     @DisplayName("GET /api/departments/{id} should return 200 and detail")
     void detail_shouldReturnDetail() throws Exception {
         DepartmentDetailResponse resp = new DepartmentDetailResponse(
-                1L, "DEV", "Desc", 1L, GeneralStatus.ACTIVE, 1L);
+                1L, "DEV", "Desc", 1L, "Career 1", GeneralStatus.ACTIVE, NOW, 1L);
 
         when(permissionService.canViewDepartmentDetail(1L)).thenReturn(true);
         when(departmentService.detail(1L)).thenReturn(resp);
@@ -148,5 +149,27 @@ class DepartmentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").value("Delete success"));
+    }
+
+    @Test
+    @DisplayName("POST /api/departments/{id}/managers/{userId} should return 200")
+    void addManager_shouldReturnSuccess() throws Exception {
+        when(permissionService.canManageDepartment(1L)).thenReturn(true);
+        doNothing().when(departmentService).addManager(1L, 2L);
+
+        mockMvc.perform(post("/api/departments/1/managers/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/departments/{id}/managers/{userId} should return 200")
+    void removeManager_shouldReturnSuccess() throws Exception {
+        when(permissionService.canManageDepartment(1L)).thenReturn(true);
+        doNothing().when(departmentService).removeManager(1L, 2L);
+
+        mockMvc.perform(delete("/api/departments/1/managers/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 }

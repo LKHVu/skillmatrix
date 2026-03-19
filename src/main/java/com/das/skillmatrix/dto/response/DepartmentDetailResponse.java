@@ -1,6 +1,6 @@
 package com.das.skillmatrix.dto.response;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 import com.das.skillmatrix.entity.GeneralStatus;
 
@@ -16,6 +16,8 @@ public class DepartmentDetailResponse {
     private String name;
     private String description;
     private Long careerId;
+    private String careerName;
     private GeneralStatus status;
+    private LocalDateTime createdAt;
     private long totalTeams;
 }
