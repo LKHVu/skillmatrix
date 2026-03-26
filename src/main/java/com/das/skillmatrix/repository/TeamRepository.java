@@ -4,12 +4,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -17,9 +14,7 @@ import com.das.skillmatrix.entity.GeneralStatus;
 import com.das.skillmatrix.entity.Team;
 
 @Repository
-public interface TeamRepository extends JpaRepository<Team, Long>, QuerydslPredicateExecutor<Team> {
-    @EntityGraph(attributePaths = { "managers", "department" })
-    Page<Team> findAll(Pageable pageable);
+public interface TeamRepository extends JpaRepository<Team, Long>, JpaSpecificationExecutor<Team> {
     long countByDepartment_DepartmentId(Long departmentId);
     long countByDepartment_DepartmentIdAndStatusIn(Long departmentId, List<GeneralStatus> statuses);
     List<Team> findByDepartment_DepartmentId(Long departmentId);
@@ -46,5 +41,5 @@ public interface TeamRepository extends JpaRepository<Team, Long>, QuerydslPredi
             @Param("departmentId") Long departmentId,
             @Param("excludeTeamId") Long excludeTeamId,
             @Param("statuses") List<GeneralStatus> statuses);
-    List<Team> findByStatusAndDeletedAtBefore(GeneralStatus status, LocalDateTime cutoff); 
+    List<Team> findByStatusAndDeletedAtBefore(GeneralStatus status, LocalDateTime cutoff);
 }

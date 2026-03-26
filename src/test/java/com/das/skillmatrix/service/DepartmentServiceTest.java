@@ -276,7 +276,7 @@ class DepartmentServiceTest {
     void addManager_shouldAddWhenValid() {
         Career c = career(1L, GeneralStatus.ACTIVE);
         Department d = department(10L, "Dev", GeneralStatus.ACTIVE, c);
-        User u = user(100L, "Manager Department", GeneralStatus.ACTIVE);
+        User u = user(100L, "MANAGER_DEPARTMENT", GeneralStatus.ACTIVE);
 
         when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));
         when(userRepository.findById(100L)).thenReturn(Optional.of(u));
@@ -307,7 +307,7 @@ class DepartmentServiceTest {
     void addManager_shouldSkipWhenAlreadyManager() {
         Career c = career(1L, GeneralStatus.ACTIVE);
         Department d = department(10L, "Dev", GeneralStatus.ACTIVE, c);
-        User u = user(100L, "Manager Department", GeneralStatus.ACTIVE);
+        User u = user(100L, "MANAGER_DEPARTMENT", GeneralStatus.ACTIVE);
         d.getManagers().add(u);
 
         when(departmentRepository.findById(10L)).thenReturn(Optional.of(d));

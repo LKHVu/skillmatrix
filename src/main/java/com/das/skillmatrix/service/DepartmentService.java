@@ -168,7 +168,7 @@ public class DepartmentService {
         if (user.getStatus() != GeneralStatus.ACTIVE) {
             throw new IllegalArgumentException("USER_NOT_ACTIVE");
         }
-        if (!"Manager Department".equalsIgnoreCase(user.getRole())) {
+        if (!"MANAGER_DEPARTMENT".equalsIgnoreCase(user.getRole())) {
             throw new IllegalArgumentException("INVALID_MANAGER_ROLE");
         }
         boolean alreadyManager = department.getManagers().stream()

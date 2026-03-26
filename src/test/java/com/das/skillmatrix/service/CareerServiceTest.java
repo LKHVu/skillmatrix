@@ -229,7 +229,7 @@ class CareerServiceTest {
         User u = new User();
         u.setUserId(2L);
         u.setStatus(GeneralStatus.ACTIVE);
-        u.setRole("Manager Career");
+        u.setRole("MANAGER_CAREER");
         when(userRepository.findById(2L)).thenReturn(Optional.of(u));
 
         careerService.addManager(1L, 2L);

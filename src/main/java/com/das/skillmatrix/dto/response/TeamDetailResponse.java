@@ -15,16 +15,9 @@ public class TeamDetailResponse {
     private Long teamId;
     private String name;
     private String description;
+    private Long departmentId;
+    private String departmentName;
     private GeneralStatus status;
     private LocalDateTime createdAt;
     private long memberCount;
-    private Department department;
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class Department {
-        private Long departmentId;
-        private String name;
-    }
 }

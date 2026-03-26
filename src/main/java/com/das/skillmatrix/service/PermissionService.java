@@ -7,8 +7,11 @@ import org.springframework.stereotype.Service;
 import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.entity.Team;
 import com.das.skillmatrix.entity.User;
+import java.util.List;
+
 import com.das.skillmatrix.repository.CareerRepository;
 import com.das.skillmatrix.repository.DepartmentRepository;
+import com.das.skillmatrix.repository.TeamMemberRepository;
 import com.das.skillmatrix.repository.TeamRepository;
 import com.das.skillmatrix.repository.UserRepository;
 
@@ -22,6 +25,7 @@ public class PermissionService {
     private final CareerRepository careerRepository;
     private final DepartmentRepository departmentRepository;
     private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
 
     // ================= CAREER =================
 
@@ -114,6 +118,20 @@ public class PermissionService {
             return true;
 
         return teamRepository.existsByTeamIdAndManagers_UserId(teamId, user.getUserId());
+    }
+
+    public boolean checkTeamMemberAccess(Long teamMemberId) {
+        Long teamId = teamMemberRepository.findById(teamMemberId).map(tm -> tm.getTeam().getTeamId()).orElse(null);
+        if (teamId == null) return true;
+        return checkTeamAccess(teamId);
+    }
+
+    public boolean checkMultiTeamAccess(List<Long> teamIds) {
+        if (teamIds == null || teamIds.isEmpty()) return true;
+        for (Long teamId : teamIds) {
+            if (!checkTeamAccess(teamId)) return false;
+        }
+        return true;
     }
 
     public boolean canManageTeam(Long teamId) {

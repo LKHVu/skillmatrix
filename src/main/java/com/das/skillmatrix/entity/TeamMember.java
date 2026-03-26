@@ -1,5 +1,8 @@
 package com.das.skillmatrix.entity;
 
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.RelationTargetAuditMode;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -14,6 +17,7 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "team_members")
+@Audited
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,4 +34,9 @@ public class TeamMember extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "position_id")
+    @Audited(targetAuditMode = RelationTargetAuditMode.NOT_AUDITED)
+    private Position position;
 }
