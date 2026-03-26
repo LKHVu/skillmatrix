@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import com.das.skillmatrix.dto.response.ApiResponse;
 import com.das.skillmatrix.dto.response.ErrorResponse;
@@ -79,6 +80,38 @@ public class GlobalExceptionHandler {
                 userMessage = "Target career not found or not active";
                 status = HttpStatus.BAD_REQUEST;
                 break;
+            case "TEAM_NOT_FOUND":
+                userMessage = "Team not found";
+                status = HttpStatus.NOT_FOUND;
+                break;
+            case "TEAM_NOT_ACTIVE":
+                userMessage = "Team is not active";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "USER_NOT_FOUND":
+                userMessage = "User not found";
+                status = HttpStatus.NOT_FOUND;
+                break;
+            case "USER_NOT_ACTIVE":
+                userMessage = "Only active users can be added to team";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "USER_NOT_IN_SAME_CAREER":
+                userMessage = "User does not belong to this career";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "USER_ALREADY_IN_TEAM":
+                userMessage = "User already exists in this team";
+                status = HttpStatus.CONFLICT;
+                break;
+            case "POSITION_NOT_FOUND":
+                userMessage = "Position not found";
+                status = HttpStatus.NOT_FOUND;
+                break;
+            case "TEAM_MEMBER_NOT_FOUND":
+                userMessage = "Team member not found";
+                status = HttpStatus.NOT_FOUND;
+                break;
             default:
                 userMessage = e.getMessage() != null ? e.getMessage() : "Bad request";
                 status = HttpStatus.BAD_REQUEST;
@@ -116,6 +149,19 @@ public class GlobalExceptionHandler {
         e.getBindingResult().getFieldErrors().forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
 
         ErrorResponse errorResponse = new ErrorResponse("Validation failed", 400, errors);
+        ApiResponse<Object> response = new ApiResponse<>(null, false, errorResponse);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMissingParam(
+            MissingServletRequestParameterException e) {
+        log.error("Missing request parameter - Error: {}", e.getMessage());
+
+        String userMessage = "Missing required parameter: " + e.getParameterName();
+
+        ErrorResponse errorResponse = new ErrorResponse(userMessage, 400);
         ApiResponse<Object> response = new ApiResponse<>(null, false, errorResponse);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);

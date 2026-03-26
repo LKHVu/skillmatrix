@@ -19,9 +19,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
+import com.das.skillmatrix.dto.request.TeamFilterRequest;
 import com.das.skillmatrix.dto.request.TeamRequest;
-import com.das.skillmatrix.dto.request.criteria.TeamSearchCriteria;
 import com.das.skillmatrix.dto.response.PageResponse;
 import com.das.skillmatrix.dto.response.TeamDetailResponse;
 import com.das.skillmatrix.dto.response.TeamResponse;
@@ -29,12 +30,10 @@ import com.das.skillmatrix.entity.Department;
 import com.das.skillmatrix.entity.GeneralStatus;
 import com.das.skillmatrix.entity.Team;
 import com.das.skillmatrix.entity.User;
-import com.das.skillmatrix.exception.ResourceNotFoundException;
 import com.das.skillmatrix.repository.DepartmentRepository;
 import com.das.skillmatrix.repository.TeamMemberRepository;
 import com.das.skillmatrix.repository.TeamRepository;
 import com.das.skillmatrix.repository.UserRepository;
-import com.querydsl.core.types.Predicate;
 
 @ExtendWith(MockitoExtension.class)
 class TeamServiceTest {
@@ -74,6 +73,7 @@ class TeamServiceTest {
         t.setStatus(GeneralStatus.ACTIVE);
         t.setCreatedAt(LocalDateTime.now());
         t.setDepartment(dept);
+        t.setManagers(new ArrayList<>());
         return t;
     }
 
@@ -83,15 +83,18 @@ class TeamServiceTest {
         u.setEmail("user" + id + "@example.com");
         u.setFullName("User " + id);
         u.setRole(role);
+        u.setStatus(GeneralStatus.ACTIVE);
         u.setManagedCareers(new ArrayList<>());
         u.setManagedDepartments(new ArrayList<>());
         u.setManagedTeams(new ArrayList<>());
         return u;
     }
 
+    // ==================== CREATE ====================
+
     @Test
-    @DisplayName("createTeam() should create and return TeamResponse")
-    void createTeam_success() {
+    @DisplayName("create() should create and return TeamResponse")
+    void create_success() {
         when(departmentRepository.findById(1L)).thenReturn(Optional.of(activeDepartment));
         when(teamRepository.existsByNameIgnoreCaseAndDepartment_DepartmentIdAndStatusIn(
                 eq("New Team"), eq(1L), anyList())).thenReturn(false);
@@ -101,45 +104,46 @@ class TeamServiceTest {
             return saved;
         });
 
-        TeamResponse res = teamService.createTeam(new TeamRequest("New Team", "desc", 1L));
+        TeamResponse res = teamService.create(new TeamRequest("New Team", "desc", 1L));
 
         assertEquals(10L, res.getTeamId());
         assertEquals("New Team", res.getName());
-        assertEquals(1L, res.getDepartment().getDepartmentId());
+        assertEquals(1L, res.getDepartmentId());
+        assertEquals("Dept One", res.getDepartmentName());
         verify(teamRepository).save(any(Team.class));
     }
 
     @Test
-    @DisplayName("createTeam() should throw when duplicate name in department")
-    void createTeam_duplicateName() {
+    @DisplayName("create() should throw when duplicate name in department")
+    void create_duplicateName() {
         when(departmentRepository.findById(1L)).thenReturn(Optional.of(activeDepartment));
         when(teamRepository.existsByNameIgnoreCaseAndDepartment_DepartmentIdAndStatusIn(
                 eq("Existing"), eq(1L), anyList())).thenReturn(true);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> teamService.createTeam(new TeamRequest("Existing", "desc", 1L)));
+                () -> teamService.create(new TeamRequest("Existing", "desc", 1L)));
         assertEquals("TEAM_NAME_EXISTS_IN_DEPARTMENT", ex.getMessage());
         verify(teamRepository, never()).save(any());
     }
 
-    @Test
-    @DisplayName("updateTeam() should update without department change")
-    void updateTeam_sameDepartment() {
-        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
-        when(teamRepository.existsByNameAndDepartmentIdExcluding(
-                eq("Updated"), eq(1L), eq(1L), anyList())).thenReturn(false);
+    // ==================== UPDATE ====================
 
-        TeamResponse res = teamService.updateTeam(1L, new TeamRequest("Updated", "new desc", 1L));
+    @Test
+    @DisplayName("update() should update without department change")
+    void update_sameDepartment() {
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+
+        TeamResponse res = teamService.update(1L, new TeamRequest("Updated", "new desc", 1L));
 
         assertEquals("Updated", res.getName());
-        assertEquals(1L, res.getDepartment().getDepartmentId());
+        assertEquals(1L, res.getDepartmentId());
         verify(teamRepository).save(activeTeam);
         verify(permissionService, never()).getCurrentUser();
     }
 
     @Test
-    @DisplayName("updateTeam() should update with department change")
-    void updateTeam_withDepartmentChange() {
+    @DisplayName("update() should update with department change")
+    void update_withDepartmentChange() {
         Department newDept = department(2L, "Dept Two", GeneralStatus.ACTIVE);
         User admin = user(1L, "ADMIN");
 
@@ -148,95 +152,102 @@ class TeamServiceTest {
         when(permissionService.isTeamManagerOnly(admin)).thenReturn(false);
         when(departmentRepository.findById(2L)).thenReturn(Optional.of(newDept));
         when(permissionService.canMoveTeamDepartment(1L, 2L)).thenReturn(true);
-        when(teamRepository.existsByNameAndDepartmentIdExcluding(
-                eq("Team Alpha"), eq(2L), eq(1L), anyList())).thenReturn(false);
 
-        TeamResponse res = teamService.updateTeam(1L, new TeamRequest("Team Alpha", "desc", 2L));
+        TeamResponse res = teamService.update(1L, new TeamRequest("Team Alpha", "desc", 2L));
 
-        assertEquals(2L, res.getDepartment().getDepartmentId());
+        assertEquals(2L, res.getDepartmentId());
         verify(teamRepository).save(activeTeam);
     }
 
+    // ==================== LIST ====================
+
+    @SuppressWarnings("unchecked")
     @Test
-    @DisplayName("getAllTeams() should return all teams for admin")
-    void getAllTeams_admin() {
+    @DisplayName("list() should return all teams for admin (global search)")
+    void list_admin() {
         User admin = user(1L, "ADMIN");
         Pageable pageable = PageRequest.of(0, 10);
 
         when(permissionService.getCurrentUser()).thenReturn(admin);
         when(permissionService.isAdmin(admin)).thenReturn(true);
-        when(teamRepository.findAll(any(Predicate.class), eq(pageable)))
+        when(teamRepository.findAll(any(Specification.class), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(activeTeam), pageable, 1));
 
-        PageResponse<TeamResponse> res = teamService.getAllTeams(new TeamSearchCriteria(), pageable);
+        PageResponse<TeamResponse> res = teamService.list(new TeamFilterRequest(), pageable);
 
         assertEquals(1, res.getItems().size());
         assertEquals("Team Alpha", res.getItems().get(0).getName());
     }
 
     @Test
-    @DisplayName("getAllTeams() should return empty when user has no managed scope")
-    void getAllTeams_emptyScope() {
+    @DisplayName("list() should return empty when user has no managed scope")
+    void list_emptyScope() {
         User employee = user(3L, "EMPLOYEE");
         Pageable pageable = PageRequest.of(0, 10);
 
         when(permissionService.getCurrentUser()).thenReturn(employee);
         when(permissionService.isAdmin(employee)).thenReturn(false);
 
-        PageResponse<TeamResponse> res = teamService.getAllTeams(new TeamSearchCriteria(), pageable);
+        PageResponse<TeamResponse> res = teamService.list(new TeamFilterRequest(), pageable);
 
         assertTrue(res.getItems().isEmpty());
         assertEquals(0, res.getTotalElements());
-        verify(teamRepository, never()).findAll(any(Predicate.class), any(Pageable.class));
+        verify(teamRepository, never()).findAll(any(Specification.class), any(Pageable.class));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
-    @DisplayName("getTeamsByDepartment() should return teams")
-    void getTeamsByDepartment_success() {
+    @DisplayName("list() with departmentId should return filtered teams")
+    void list_byDepartment() {
         Pageable pageable = PageRequest.of(0, 10);
-        TeamSearchCriteria criteria = new TeamSearchCriteria();
-        criteria.setDepartmentId(1L);
+        TeamFilterRequest filter = new TeamFilterRequest();
+        filter.setDepartmentId(1L);
 
         when(departmentRepository.findById(1L)).thenReturn(Optional.of(activeDepartment));
-        when(teamRepository.findAll(any(Predicate.class), eq(pageable)))
+        when(teamRepository.findAll(any(Specification.class), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(activeTeam), pageable, 1));
 
-        PageResponse<TeamResponse> res = teamService.getTeamsByDepartment(criteria, pageable);
+        PageResponse<TeamResponse> res = teamService.list(filter, pageable);
 
         assertEquals(1, res.getItems().size());
     }
 
+    // ==================== DETAIL ====================
+
     @Test
-    @DisplayName("getTeamById() should return detail when found")
-    void getTeamById_success() {
+    @DisplayName("detail() should return detail when found")
+    void detail_success() {
         when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
         when(teamMemberRepository.countByTeam_TeamId(1L)).thenReturn(5L);
 
-        TeamDetailResponse res = teamService.getTeamById(1L);
+        TeamDetailResponse res = teamService.detail(1L);
 
         assertEquals(1L, res.getTeamId());
         assertEquals("Team Alpha", res.getName());
         assertEquals(5L, res.getMemberCount());
-        assertEquals(1L, res.getDepartment().getDepartmentId());
+        assertEquals(1L, res.getDepartmentId());
+        assertEquals("Dept One", res.getDepartmentName());
     }
 
     @Test
-    @DisplayName("getTeamById() should throw when not found")
-    void getTeamById_notFound() {
+    @DisplayName("detail() should throw when not found")
+    void detail_notFound() {
         when(teamRepository.findById(99L)).thenReturn(Optional.empty());
 
-        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
-                () -> teamService.getTeamById(99L));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> teamService.detail(99L));
         assertEquals("TEAM_NOT_FOUND", ex.getMessage());
     }
 
+    // ==================== DELETE ====================
+
     @Test
-    @DisplayName("deleteTeam() should deactivate when has members and log status change")
-    void deleteTeam_deactivate() {
+    @DisplayName("delete() should deactivate when has members and log status change")
+    void delete_deactivate() {
         when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
         when(teamMemberRepository.existsByTeam_TeamId(1L)).thenReturn(true);
 
-        teamService.deleteTeam(1L);
+        teamService.delete(1L);
         assertEquals(GeneralStatus.DEACTIVE, activeTeam.getStatus());
         assertNotNull(activeTeam.getDeActiveAt());
         verify(teamRepository).save(activeTeam);
@@ -246,12 +257,12 @@ class TeamServiceTest {
     }
 
     @Test
-    @DisplayName("deleteTeam() should soft-delete when no members and log status change")
-    void deleteTeam_softDelete() {
+    @DisplayName("delete() should soft-delete when no members and log status change")
+    void delete_softDelete() {
         when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
         when(teamMemberRepository.existsByTeam_TeamId(1L)).thenReturn(false);
 
-        teamService.deleteTeam(1L);
+        teamService.delete(1L);
         assertEquals(GeneralStatus.DELETED, activeTeam.getStatus());
         assertNotNull(activeTeam.getDeletedAt());
         verify(teamRepository).save(activeTeam);
@@ -260,24 +271,39 @@ class TeamServiceTest {
                 eq("status"), eq("ACTIVE"), eq("DELETED"));
     }
 
-    @Test
-    @DisplayName("assignManagers() should assign and log reassignment")
-    void assignManagers_success() {
-        User oldMgr = user(5L, "MANAGER_TEAM");
-        activeTeam.setManagers(new ArrayList<>(List.of(oldMgr)));
+    // ==================== ADD/REMOVE MANAGER ====================
 
-        User mgr1 = user(10L, "MANAGER_TEAM");
-        User mgr2 = user(11L, "MANAGER_TEAM");
+    @Test
+    @DisplayName("addManager() should add manager and log")
+    void addManager_success() {
+        User mgr = user(5L, "MANAGER_TEAM");
 
         when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
-        when(userRepository.findAllById(List.of(10L, 11L))).thenReturn(List.of(mgr1, mgr2));
+        when(userRepository.findById(5L)).thenReturn(Optional.of(mgr));
 
-        teamService.assignManagers(1L, List.of(10L, 11L));
+        teamService.addManager(1L, 5L);
 
-        assertEquals(2, activeTeam.getManagers().size());
+        assertEquals(1, activeTeam.getManagers().size());
         verify(teamRepository).save(activeTeam);
         verify(businessChangeLogService).log(
-                eq("REASSIGN_TEAM_MANAGERS"), eq("TEAM"), eq(1L),
-                eq("managerIds"), eq("[5]"), eq("[10, 11]"));
+                eq("ADD_TEAM_MANAGER"), eq("TEAM"), eq(1L),
+                eq("managerId"), isNull(), eq("5"));
+    }
+
+    @Test
+    @DisplayName("removeManager() should remove manager and log")
+    void removeManager_success() {
+        User oldMgr = user(5L, "Manager Team");
+        activeTeam.setManagers(new ArrayList<>(List.of(oldMgr)));
+
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(activeTeam));
+
+        teamService.removeManager(1L, 5L);
+
+        assertEquals(0, activeTeam.getManagers().size());
+        verify(teamRepository).save(activeTeam);
+        verify(businessChangeLogService).log(
+                eq("REMOVE_TEAM_MANAGER"), eq("TEAM"), eq(1L),
+                eq("managerId"), eq("5"), isNull());
     }
 }

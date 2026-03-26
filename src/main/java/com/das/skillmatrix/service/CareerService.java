@@ -147,7 +147,7 @@ public class CareerService {
         if (!GeneralStatus.ACTIVE.name().equals(user.getStatus().name())) {
             throw new IllegalArgumentException("USER_NOT_ACTIVE");
         }
-        if (!"Manager Career".equalsIgnoreCase(user.getRole())) {
+        if (!"MANAGER_CAREER".equalsIgnoreCase(user.getRole())) {
             throw new IllegalArgumentException("INVALID_MANAGER_ROLE");
         }
         boolean alreadyManager = career.getManagers().stream()
