@@ -114,7 +114,9 @@ public class DataSeeder {
             user.setFullName(fullName);
             user.setRole(role);
             user.setDepartment(dept);
-            user.setPosition(position);
+            if (position != null) {
+                user.setPositions(new java.util.ArrayList<>(java.util.List.of(position)));
+            }
             user.setStatus(GeneralStatus.ACTIVE);
             userRepository.save(user);
         }
@@ -184,9 +186,7 @@ public class DataSeeder {
             skill = skillRepository.save(skill);
         }
         final Long skillId = skill.getSkillId();
-        boolean alreadyLinked = pos.getPositionSkills() != null
-                && pos.getPositionSkills().stream()
-                        .anyMatch(ps -> ps.getSkill().getSkillId().equals(skillId));
+        boolean alreadyLinked = positionSkillRepository.existsByPosition_PositionIdAndSkill_SkillId(pos.getPositionId(), skillId);
         if (!alreadyLinked) {
             PositionSkill ps = new PositionSkill();
             ps.setPosition(pos);

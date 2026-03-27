@@ -212,12 +212,91 @@ public class PermissionService {
     // ================= COMMON =================
 
     public User getCurrentUser() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) return null;
         return userRepository.findUserByEmail(auth.getName());
     }
 
     public boolean isAdmin(User user) {
         return user != null && "ADMIN".equals(user.getRole());
+    }
+
+    // ================== USER PERMISSIONS ==================
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public boolean checkUserViewAccess(Long targetUserId) {
+        User currentUser = getCurrentUser();
+        if (isAdmin(currentUser)) return true;
+        
+        if (currentUser.getUserId().equals(targetUserId)) return true;
+        
+        User targetUser = userRepository.findById(targetUserId).orElse(null);
+        if (targetUser == null) return false;
+        
+        switch (currentUser.getRole()) {
+            case "MANAGER_CAREER":
+                return validateScopeInManagersList(targetUser.getDepartment(), null, currentUser.getManagedCareers(), null);
+                
+            case "MANAGER_DEPARTMENT":
+                return validateScopeInManagersList(targetUser.getDepartment(), null, null, currentUser.getManagedDepartments());
+                
+            case "MANAGER_TEAM":
+                if (targetUser.getDepartment() == null) return false;
+                return currentUser.getManagedTeams().stream().anyMatch(cmt -> 
+                    cmt.getDepartment().getDepartmentId().equals(targetUser.getDepartment().getDepartmentId()));
+                                
+            case "STAFF":
+                // Staff can only view users in teams they belong to
+                List<com.das.skillmatrix.entity.TeamMember> staffTeams = teamMemberRepository.findByUser_UserId(currentUser.getUserId());
+                List<com.das.skillmatrix.entity.TeamMember> targetTeams = teamMemberRepository.findByUser_UserId(targetUserId);
+                return staffTeams.stream().anyMatch(st -> 
+                    targetTeams.stream().anyMatch(tt -> st.getTeam().getTeamId().equals(tt.getTeam().getTeamId())));
+            default:
+                return false;
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public boolean canManageUser(Long targetUserId) {
+        User currentUser = getCurrentUser();
+        if (isAdmin(currentUser)) return true;
+        
+        // Manager Team and Staff cannot edit/delete any user (4.4.1, 4.5.1)
+        String role = currentUser.getRole();
+        if ("MANAGER_TEAM".equals(role) || "STAFF".equals(role)) return false;
+        
+        User targetUser = userRepository.findById(targetUserId).orElse(null);
+        if (targetUser == null) return false;
+        
+        if ("MANAGER_CAREER".equals(currentUser.getRole())) {
+            return validateScopeInManagersList(targetUser.getDepartment(), null, currentUser.getManagedCareers(), null);
+        }
+        
+        if ("MANAGER_DEPARTMENT".equals(currentUser.getRole())) {
+            return validateScopeInManagersList(targetUser.getDepartment(), null, null, currentUser.getManagedDepartments());
+        }
+        
+        return false;
+    }
+    
+    private boolean validateScopeInManagersList(Department targetDept, Team targetTeam, java.util.List<com.das.skillmatrix.entity.Career> managedCareers, java.util.List<Department> managedDepts) {
+        if (targetDept == null && targetTeam == null) return false;
+        
+        if (targetTeam != null) {
+            if (managedDepts != null) {
+                return managedDepts.stream().anyMatch(d -> d.getDepartmentId().equals(targetTeam.getDepartment().getDepartmentId()));
+            }
+            if (managedCareers != null) {
+                return managedCareers.stream().anyMatch(c -> c.getCareerId().equals(targetTeam.getDepartment().getCareer().getCareerId()));
+            }
+        } 
+        else if (targetDept != null) {
+            if (managedCareers != null) {
+                return managedCareers.stream().anyMatch(c -> c.getCareerId().equals(targetDept.getCareer().getCareerId()));
+            }
+            if (managedDepts != null) {
+                return managedDepts.stream().anyMatch(old -> old.getDepartmentId().equals(targetDept.getDepartmentId()));
+            }
+        }
+        return false;
     }
 }
