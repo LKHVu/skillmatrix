@@ -112,6 +112,54 @@ public class GlobalExceptionHandler {
                 userMessage = "Team member not found";
                 status = HttpStatus.NOT_FOUND;
                 break;
+            case "EMAIL_ALREADY_EXISTS":
+                userMessage = "Email already exists";
+                status = HttpStatus.CONFLICT;
+                break;
+            case "EMAIL_REQUIRED":
+                userMessage = "Email is required";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "INVALID_EMAIL_FORMAT":
+                userMessage = "Invalid email format";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "INVALID_ROLE":
+                userMessage = "Invalid role assignment";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "ROLE_EXCEEDS_PERMISSION":
+                userMessage = "Cannot assign role that exceeds your permission level";
+                status = HttpStatus.FORBIDDEN;
+                break;
+            case "SCOPE_REQUIRED":
+                userMessage = "Scope assignment is required for this role";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "INVALID_SCOPE":
+                userMessage = "Selected scope is not valid or not active";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "POSITION_REQUIRED":
+                userMessage = "At least one position must be selected";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "POSITION_NOT_ACTIVE":
+                userMessage = "One or more selected positions are not active";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "CANNOT_DEACTIVE_DEACTIVED_USER":
+                userMessage = "User is already deactivated";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "DEACTIVATION_DURATION_REQUIRED":
+                userMessage = "Please select a deactivation duration";
+                status = HttpStatus.BAD_REQUEST;
+                break;
+            case "USER_NOT_DEACTIVE":
+                userMessage = "Cannot reactivate: user is not deactivated";
+                status = HttpStatus.BAD_REQUEST;
+                break;
             default:
                 userMessage = e.getMessage() != null ? e.getMessage() : "Bad request";
                 status = HttpStatus.BAD_REQUEST;
